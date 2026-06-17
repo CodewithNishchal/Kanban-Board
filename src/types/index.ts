@@ -25,6 +25,9 @@ export interface Card {
   title: string;
   description: string;
   priority: Priority;
+  category?: string;         // E.g. "Web Design", "Mobile App"
+  progress?: number;         // E.g. 50
+  attachmentsCount?: number; // E.g. 6
   dueDate: string | null;   // ISO-8601 string or null
   columnId: string;          // ID of the column this card belongs to
   assignee: Assignee;        // Hardcoded initials — no real user system
@@ -70,7 +73,8 @@ export type SyncAction =
   | { type: 'MOVE_CARD';       payload: { cardId: string; fromColumnId: string; toColumnId: string; toIndex: number } }
   | { type: 'EDIT_BOARD_TITLE'; payload: { title: string } }
   | { type: 'ADD_COMMENT';     payload: { cardId: string; comment: CardComment } }
-  | { type: 'LOG_ACTION';      payload: { entry: ActivityEntry } };
+  | { type: 'LOG_ACTION';      payload: { entry: ActivityEntry } }
+  | { type: 'SET_TRANSIT';     payload: { cardId: string | null } };
 
 /** The envelope that travels over BroadcastChannel. */
 export interface SyncMessage {

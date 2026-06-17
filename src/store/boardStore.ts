@@ -103,15 +103,17 @@ interface BoardStore {
   columns: Column[];
   cards: Record<string, Card>;
   activityLog: ActivityEntry[];
+  inTransitCardId: string | null;
 
   // ── Local mutations (broadcast + log) ─────────────────────
-  addCard:         (columnId: string, title: string, priority?: Priority) => void;
+  addCard:         (columnId: string, title: string, priority?: Priority, category?: string, progress?: number, attachmentsCount?: number) => void;
   editCard:        (cardId: string, updates: Partial<Omit<Card, 'id'>>) => void;
   deleteCard:      (cardId: string) => void;
-  moveCard:        (cardId: string, toColumnId: string, toIndex: number) => void;
+  moveCard:        (cardId: string, toColumnId: string, toIndex: number, skipLog?: boolean) => void;
   renameColumn:    (columnId: string, newTitle: string) => void;
   setBoardTitle:   (title: string) => void;
   addComment:      (cardId: string, text: string) => void;
+  setTransitCard:  (cardId: string | null) => void;
 
   // ── Board reset ───────────────────────────────────────────
   resetBoard:      () => void;
@@ -137,6 +139,7 @@ export const useBoardStore = create<BoardStore>()(
       columns:     DEFAULT_COLUMNS,
       cards:       {},
       activityLog: [],
+      inTransitCardId: null,
 
       // ── Broadcast slot (wired by useBroadcastSync) ──────────
       _broadcastAction: null,
@@ -165,12 +168,22 @@ export const useBoardStore = create<BoardStore>()(
       //  Each one: (1) mutates state, (2) logs, (3) broadcasts.
       // ────────────────────────────────────────────────────────
 
-      addCard: (columnId: string, title: string, priority: Priority = 'medium') => {
+      addCard: (
+        columnId: string, 
+        title: string, 
+        priority: Priority = 'medium',
+        category?: string,
+        progress?: number,
+        attachmentsCount?: number
+      ) => {
         const card: Card = {
           id:          uid(),
           title,
           description: '',
           priority,
+          category,
+          progress,
+          attachmentsCount,
           dueDate:     null,
           columnId,
           assignee:    '',
@@ -247,26 +260,31 @@ export const useBoardStore = create<BoardStore>()(
         cardId: string,
         toColumnId: string,
         toIndex: number,
+        skipLog?: boolean
       ) => {
         const card = get().cards[cardId];
         if (!card) return;
 
+        // Guard: reject invalid target column or negative index
+        if (!toColumnId || toIndex < 0) return;
+        const targetExists = get().columns.some((c) => c.id === toColumnId);
+        if (!targetExists) return;
+
         const fromColumnId = card.columnId;
 
         set((state) => {
-          // Deep-clone columns to avoid reference mutation
-          const columns = state.columns.map((col) => ({ ...col, cardIds: [...col.cardIds] }));
+          // Deep-clone columns and remove card from ALL columns to fix any glitch state
+          const columns = state.columns.map((col) => ({ 
+            ...col, 
+            cardIds: col.cardIds.filter(id => id !== cardId) 
+          }));
 
-          // Remove from source column
-          const srcCol = columns.find((c) => c.id === fromColumnId);
-          if (srcCol) {
-            srcCol.cardIds = srcCol.cardIds.filter((id) => id !== cardId);
-          }
+          // (already removed from source during deep-clone filter above)
 
           // Insert into target column at the requested index
           const dstCol = columns.find((c) => c.id === toColumnId);
           if (dstCol) {
-            const clampedIndex = Math.min(toIndex, dstCol.cardIds.length);
+            const clampedIndex = Math.max(0, Math.min(toIndex, dstCol.cardIds.length));
             dstCol.cardIds.splice(clampedIndex, 0, cardId);
           }
 
@@ -279,19 +297,21 @@ export const useBoardStore = create<BoardStore>()(
           };
         });
 
-        const fromTitle = get().columns.find((c) => c.id === fromColumnId)?.title ?? fromColumnId;
-        const toTitle   = get().columns.find((c) => c.id === toColumnId)?.title   ?? toColumnId;
+        if (!skipLog) {
+          const fromTitle = get().columns.find((c) => c.id === fromColumnId)?.title ?? fromColumnId;
+          const toTitle   = get().columns.find((c) => c.id === toColumnId)?.title   ?? toColumnId;
 
-        if (fromColumnId === toColumnId) {
-          get()._log(`Reordered "${card.title}" in ${toTitle}`);
-        } else {
-          get()._log(`Moved "${card.title}" from ${fromTitle} to ${toTitle}`);
+          if (fromColumnId === toColumnId) {
+            get()._log(`Reordered "${card.title}" in ${toTitle}`);
+          } else {
+            get()._log(`Moved "${card.title}" from ${fromTitle} to ${toTitle}`);
+          }
+
+          get()._broadcastAction?.({
+            type: 'MOVE_CARD',
+            payload: { cardId, fromColumnId, toColumnId, toIndex },
+          });
         }
-
-        get()._broadcastAction?.({
-          type: 'MOVE_CARD',
-          payload: { cardId, fromColumnId, toColumnId, toIndex },
-        });
       },
 
       renameColumn: (columnId: string, newTitle: string) => {
@@ -349,6 +369,14 @@ export const useBoardStore = create<BoardStore>()(
         get()._broadcastAction?.({
           type: 'ADD_COMMENT',
           payload: { cardId, comment },
+        });
+      },
+
+      setTransitCard: (cardId: string | null) => {
+        set({ inTransitCardId: cardId });
+        get()._broadcastAction?.({
+          type: 'SET_TRANSIT',
+          payload: { cardId },
         });
       },
 
@@ -428,17 +456,12 @@ export const useBoardStore = create<BoardStore>()(
           }
 
           case 'MOVE_CARD': {
-            const { cardId, fromColumnId, toColumnId, toIndex } = event.payload;
+            const { cardId, toColumnId, toIndex } = event.payload;
             set((state) => {
               const columns = state.columns.map((col) => ({
                 ...col,
-                cardIds: [...col.cardIds],
+                cardIds: col.cardIds.filter((id) => id !== cardId),
               }));
-
-              const srcCol = columns.find((c) => c.id === fromColumnId);
-              if (srcCol) {
-                srcCol.cardIds = srcCol.cardIds.filter((id) => id !== cardId);
-              }
 
               const dstCol = columns.find((c) => c.id === toColumnId);
               if (dstCol) {
@@ -488,6 +511,12 @@ export const useBoardStore = create<BoardStore>()(
             set((state) => ({
               activityLog: [entry, ...state.activityLog].slice(0, 20),
             }));
+            break;
+          }
+
+          case 'SET_TRANSIT': {
+            const { cardId } = event.payload;
+            set({ inTransitCardId: cardId });
             break;
           }
         }
