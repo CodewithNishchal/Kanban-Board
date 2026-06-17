@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useBoardStore } from '../store/boardStore';
 import type { SyncMessage } from '../types';
+import { TAB_ID } from './tabId';
 
-export const TAB_ID = crypto.randomUUID(); // unique session tab ID
+export { TAB_ID };
 
 // Shared channel instance for presence
 const presenceChannel = new BroadcastChannel('kanban-presence');

@@ -1,23 +1,29 @@
 import type React from 'react';
 import { useState, useEffect } from 'react';
-import { X, Trash2, Send, Calendar, User, Edit2, Check } from 'lucide-react';
+import { X, Trash2, Send, Calendar, User, Edit2, Check, Activity } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useBoardStore } from '../store/boardStore';
+import { getRelativeTime } from '../utils/time';
+import { useRelativeTimeRefresh } from '../hooks/useRelativeTimeRefresh';
 import type { Priority, Assignee, Card } from '../types';
 
 
 interface EditPanelProps {
-  cardId: string;
+  mode?: 'edit' | 'log';
+  cardId?: string;
   onClose: () => void;
 }
 
-const EditPanel: React.FC<EditPanelProps> = ({ cardId, onClose }) => {
+const EditPanel: React.FC<EditPanelProps> = ({ mode = 'edit', cardId, onClose }) => {
   const cards = useBoardStore(state => state.cards);
+  const activityLog = useBoardStore(state => state.activityLog);
   const editCard = useBoardStore(state => state.editCard);
   const deleteCard = useBoardStore(state => state.deleteCard);
   const addComment = useBoardStore(state => state.addComment);
 
-  const card = cards[cardId];
+  const tick = useRelativeTimeRefresh(30000);
+
+  const card = (mode === 'edit' && cardId) ? cards[cardId] : undefined;
   const columnTitle = useBoardStore(state => state.columns.find(c => c.id === card?.columnId)?.title || 'Column');
 
   const [title, setTitle] = useState('');
@@ -33,7 +39,7 @@ const EditPanel: React.FC<EditPanelProps> = ({ cardId, onClose }) => {
 
   // Initialize local state once when the panel opens for a specific card
   useEffect(() => {
-    if (card) {
+    if (mode === 'edit' && card) {
       setTitle(card.title);
       setDescription(card.description || '');
       setPriority(card.priority);
@@ -63,7 +69,7 @@ const EditPanel: React.FC<EditPanelProps> = ({ cardId, onClose }) => {
 
   // Auto-save effect: syncs local state to the global store after 100ms of no typing
   useEffect(() => {
-    if (!card) return;
+    if (mode !== 'edit' || !card || !cardId) return;
     const timer = setTimeout(() => {
       const updates: Partial<Omit<Card, 'id'>> = {};
       let hasChanges = false;
@@ -90,22 +96,24 @@ const EditPanel: React.FC<EditPanelProps> = ({ cardId, onClose }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [title, description, dueDate]);
 
-  if (!card) return null;
+  if (mode === 'edit' && !card) return null;
 
   const handleDelete = () => {
-    onClose();
-    deleteCard(cardId);
+    if (cardId) {
+      onClose();
+      deleteCard(cardId);
+    }
   };
 
   const handleAddComment = () => {
-    if (newComment.trim()) {
+    if (cardId && newComment.trim()) {
       addComment(cardId, newComment.trim());
       setNewComment('');
     }
   };
 
   const handleSaveCommentEdit = (commentId: string) => {
-    if (!editingCommentText.trim()) return;
+    if (!cardId || !card || !editingCommentText.trim()) return;
     const newComments = card.comments.map(c =>
       c.id === commentId ? { ...c, text: editingCommentText.trim() } : c
     );
@@ -114,28 +122,76 @@ const EditPanel: React.FC<EditPanelProps> = ({ cardId, onClose }) => {
   };
 
   const handleDeleteComment = (commentId: string) => {
+    if (!cardId || !card) return;
     const newComments = card.comments.filter(c => c.id !== commentId);
     editCard(cardId, { comments: newComments });
   };
 
+  if (mode === 'log') {
+    return (
+      <motion.div
+        layoutId="logs-panel"
+        initial={{ x: 420 }}
+        animate={{ x: 0 }}
+        exit={{ x: 420 }}
+        transition={{ duration: 0.3, ease: 'easeOut' }}
+        className="relative flex-shrink-0 bg-white shadow-[-10px_0_30px_rgba(0,0,0,0.05)] border-l border-slate-100 flex flex-col z-50 overflow-hidden"
+      >
+        <div className="w-[420px] flex flex-col h-full bg-slate-50">
+          <div className="flex justify-between items-center p-6 pb-4 border-b border-slate-200 bg-white flex-shrink-0">
+            <div className="flex items-center space-x-2 text-[19px] font-bold text-slate-500">
+              <Activity className="w-5 h-5 text-violet-500" />
+              <span className="font-extrabold text-[#120836]">Activity Log</span>
+            </div>
+            <button onClick={onClose} className="p-2 bg-slate-50 hover:bg-slate-100 rounded-full text-gray-500 transition-colors cursor-pointer">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+          <div className="flex-1 overflow-y-auto p-6 space-y-4 custom-scrollbar">
+            {activityLog.length === 0 ? (
+               <p className="text-gray-400 italic text-center py-4 text-sm font-medium">No activity yet.</p>
+            ) : (
+              activityLog.map(entry => (
+                <div key={entry.id} className="bg-white rounded-xl p-4 border border-slate-200 shadow-sm">
+                  <p className="text-[15px] text-gray-700 font-bold mb-3 leading-relaxed">{entry.message}</p>
+                  <div className="flex justify-between items-center text-xs font-bold">
+                    <span className="text-gray-400">{getRelativeTime(entry.timestamp)}</span>
+                    <span className="bg-slate-50 px-2.5 py-1 rounded-md border border-slate-200 text-slate-500 uppercase tracking-wider text-[10px]">
+                      TAB {entry.tabId.slice(-4).toUpperCase()}
+                    </span>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </motion.div>
+    );
+  }
+
   return (
     <motion.div
-      layoutId={`card-${cardId}`}
-      className="relative flex-shrink-0 bg-white shadow-[-10px_0_30px_rgba(0,0,0,0.05)] border-l border-slate-100 flex flex-col z-50 overflow-hidden"
+      layoutId={cardId ? `card-${cardId}` : undefined}
+      initial={{ opacity: 0, scale: 0.75, x: -80 }}
+      animate={{ opacity: 1, scale: 1, x: 0 }}
+      exit={{ opacity: 0, scale: 0.8, x: -60 }}
+      transition={{ type: "spring", stiffness: 200, damping: 25 }}
+      style={{ transformOrigin: 'left center' }}
+      className="absolute right-6 top-6 bottom-6 z-50 bg-white shadow-2xl rounded-[2rem] border border-slate-100 flex flex-col overflow-hidden"
     >
-      <div className="w-[420px] flex flex-col h-full">
+      <div className="w-[420px] flex flex-col h-full overflow-hidden">
         <div className="flex justify-between items-center p-6 pb-4 border-b border-slate-50 flex-shrink-0">
           <div className="flex items-center space-x-2 text-[19px] font-bold text-slate-500 flex-wrap">
             <span className="font-extrabold">{columnTitle}</span>
             <span className="text-slate-400">→</span>
-            <span className="text-[#120836] font-black truncate max-w-[240px]">{card.title}</span>
+            <span className="text-[#120836] font-black truncate max-w-[240px]">{card?.title}</span>
           </div>
           <button onClick={onClose} className="p-2 bg-slate-50 hover:bg-slate-100 rounded-full text-gray-500 transition-colors cursor-pointer">
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar">
+        <div className="flex-1 overflow-y-auto p-6 space-y-5 custom-scrollbar">
           {/* Title */}
           <div>
             <label className="block text-[13px] font-extrabold text-slate-500 uppercase tracking-wider mb-2">Title</label>
@@ -143,7 +199,7 @@ const EditPanel: React.FC<EditPanelProps> = ({ cardId, onClose }) => {
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-base font-semibold text-gray-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
+              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-[15px] font-semibold text-gray-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
             />
           </div>
 
@@ -153,22 +209,22 @@ const EditPanel: React.FC<EditPanelProps> = ({ cardId, onClose }) => {
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              rows={4}
-              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-base font-medium text-gray-700 focus:bg-white focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all resize-none custom-scrollbar"
+              rows={3}
+              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-[15px] font-medium text-gray-700 focus:bg-white focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all resize-none custom-scrollbar"
               placeholder="Add a more detailed description..."
             />
           </div>
 
           {/* Priority & Due Date (2 columns) */}
-          <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-[13px] font-extrabold text-slate-500 uppercase tracking-wider mb-2">Priority</label>
-              <div className="flex flex-col space-y-1.5">
+              <div className="flex flex-col space-y-2">
                 {(['high', 'medium', 'low'] as Priority[]).map(p => (
                   <button
                     key={p}
-                    onClick={() => { setPriority(p); editCard(cardId, { priority: p }); }}
-                    className={`py-2 px-3 rounded-lg text-sm font-bold capitalize border transition-colors ${priority === p
+                    onClick={() => { if (cardId) { setPriority(p); editCard(cardId, { priority: p }); } }}
+                    className={`py-2.5 px-3 rounded-lg text-sm font-bold capitalize border transition-colors ${priority === p
                         ? p === 'high' ? 'bg-rose-100 text-rose-600 border-rose-200 shadow-sm'
                           : p === 'medium' ? 'bg-amber-100 text-amber-600 border-amber-200 shadow-sm'
                             : 'bg-emerald-100 text-emerald-600 border-emerald-200 shadow-sm'
@@ -181,7 +237,7 @@ const EditPanel: React.FC<EditPanelProps> = ({ cardId, onClose }) => {
               </div>
             </div>
 
-            <div className="flex flex-col space-y-4">
+            <div className="flex flex-col space-y-5">
               <div>
                 <label className="block text-[13px] font-extrabold text-slate-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
                   <Calendar className="w-[15px] h-[15px]" /> Due Date
@@ -190,7 +246,7 @@ const EditPanel: React.FC<EditPanelProps> = ({ cardId, onClose }) => {
                   type="date"
                   value={dueDate}
                   onChange={(e) => setDueDate(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-base font-medium text-gray-700 focus:bg-white focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
+                  className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-[15px] font-medium text-gray-700 focus:bg-white focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
                 />
               </div>
 
@@ -203,9 +259,9 @@ const EditPanel: React.FC<EditPanelProps> = ({ cardId, onClose }) => {
                   onChange={(e) => {
                     const val = e.target.value as Assignee;
                     setAssignee(val);
-                    editCard(cardId, { assignee: val });
+                    if (cardId) editCard(cardId, { assignee: val });
                   }}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-base font-medium text-gray-700 focus:bg-white focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all cursor-pointer"
+                  className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-[15px] font-medium text-gray-700 focus:bg-white focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all cursor-pointer"
                 >
                   <option value="">Unassigned</option>
                   <option value="NV">NV</option>
@@ -219,7 +275,7 @@ const EditPanel: React.FC<EditPanelProps> = ({ cardId, onClose }) => {
           </div>
 
           {/* Comments Section */}
-          <div className="pt-6 border-t border-slate-100">
+          <div className="pt-5 border-t border-slate-100">
             <div className="flex justify-between items-center mb-4">
               <label className="block text-[13px] font-extrabold text-slate-500 uppercase tracking-wider">Activity & Comments</label>
               <button
@@ -246,8 +302,8 @@ const EditPanel: React.FC<EditPanelProps> = ({ cardId, onClose }) => {
               </button>
             </div>
 
-            <div className="space-y-4 mb-4 max-h-[200px] overflow-y-auto custom-scrollbar pr-2">
-              {card.comments && card.comments.length > 0 ? (
+            <div className="space-y-3 mb-4 max-h-[220px] overflow-y-auto custom-scrollbar pr-2">
+              {card?.comments && card.comments.length > 0 ? (
                 card.comments.map(comment => (
                   <div key={comment.id} className="bg-slate-50 rounded-xl p-3 border border-slate-100">
                     <div className="flex justify-between items-center mb-1.5">
@@ -317,8 +373,8 @@ const EditPanel: React.FC<EditPanelProps> = ({ cardId, onClose }) => {
                   }
                 }}
                 placeholder="Write a comment..."
-                rows={2}
-                className="w-full pl-4 pr-12 py-3 bg-white border border-slate-200 rounded-xl text-lg font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all resize-none custom-scrollbar"
+                rows={3}
+                className="w-full pl-4 pr-12 py-3 bg-white border border-slate-200 rounded-xl text-[15px] font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all resize-none custom-scrollbar"
               />
               <button
                 onClick={handleAddComment}
@@ -331,7 +387,7 @@ const EditPanel: React.FC<EditPanelProps> = ({ cardId, onClose }) => {
           </div>
         </div>
 
-        <div className="p-6 pt-4 mt-auto border-t border-slate-100 bg-slate-50/50 flex-shrink-0 overflow-hidden">
+        <div className="p-5 pt-3 mt-auto border-t border-slate-100 bg-slate-50/50 flex-shrink-0 overflow-hidden">
           <AnimatePresence mode="wait">
             {isConfirmingDelete ? (
               <motion.div

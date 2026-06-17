@@ -1,5 +1,5 @@
 import type React from 'react';
-import { Paperclip, MessageCircle, MoreHorizontal, Radio } from 'lucide-react';
+import { MessageCircle, User, MoreHorizontal, Radio } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -118,66 +118,56 @@ const BoardCard: React.FC<{ card: Card; onEdit?: () => void; isEditing?: boolean
           ))}
         </div>
         
-        <div className="flex space-x-3 text-slate-300">
-          <div className="flex items-center space-x-1 text-[9.5px] xl:text-[11px] font-semibold">
-            <Paperclip className="w-3 h-3" />
-            <span>{attachments}</span>
-          </div>
-          <div className="flex items-center space-x-1 text-[9.5px] xl:text-[11px] font-semibold">
-            <MessageCircle className="w-3 h-3" />
-            <span>{commentsCount}</span>
-          </div>
+        <div className="flex items-center gap-1 text-slate-400 text-[10px] xl:text-[11px] font-semibold bg-slate-100/40 px-2 py-0.5 rounded-full">
+          <MessageCircle className="w-3 h-3" />
+          <span>{commentsCount}</span>
         </div>
       </div>
     </div>
   ) : (
     <>
-      <div className="flex justify-between items-start mb-3">
-        <span className={`text-[10.5px] xl:text-[11.5px] font-extrabold px-3 py-1 rounded-full capitalize ${getCategoryStyle(card.category || card.priority)}`}>
-          {card.category || card.priority}
+      {/* Priority Badge — pill-shaped */}
+      <div className="mb-3">
+        <span className={`text-[11px] xl:text-[12.5px] font-bold px-3.5 py-1.5 rounded-full capitalize inline-block tracking-wide ${
+          card.priority === 'high' ? 'bg-red-100/80 text-red-600' :
+          card.priority === 'medium' ? 'bg-amber-100/80 text-amber-600' :
+          'bg-blue-100/80 text-blue-600'
+        }`}>
+          {card.priority}
         </span>
-        <button className="text-gray-300 hover:text-gray-500 cursor-pointer p-0.5">
-          <MoreHorizontal className="w-4 h-4" />
-        </button>
-      </div>
-      
-      <h3 className="font-semibold text-slate-500 text-[13px] xl:text-[15px] mb-6 leading-relaxed pr-2">{card.title}</h3>
-      
-      {/* Progress Bar */}
-      <div className="mb-4">
-        <div className="flex justify-end text-[11px] xl:text-[13px] text-gray-400 mb-1">
-          <span className="font-bold">{progress}%</span>
-        </div>
-        <div className="w-full bg-slate-100 rounded-full h-1">
-          <div 
-            className="h-1 rounded-full bg-violet-600 transition-all duration-300" 
-            style={{ width: `${progress}%` }}
-          ></div>
-        </div>
       </div>
 
-      {/* Footer */}
-      <div className="flex justify-between items-center mt-4 pt-2 border-t border-slate-50">
-        <div className="flex -space-x-1.5">
-          {mockAvatars.map((url, i) => (
-            <img 
-              key={i} 
-              src={url} 
-              alt="Avatar" 
-              className="w-5 h-5 rounded-full border border-white bg-gray-200 shadow-sm" 
-            />
-          ))}
+      {/* Title */}
+      <h3 className="font-extrabold text-slate-800 text-[15px] xl:text-[17px] mb-2.5 leading-snug pr-2">{card.title}</h3>
+
+      {/* Assignee Avatar / Initials — hardcoded below heading */}
+      <div className="flex items-center gap-2 mb-4">
+        {card.assignee ? (
+          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-violet-500 to-indigo-500 shadow-md flex items-center justify-center text-[11px] font-bold text-white uppercase ring-2 ring-white">
+            {card.assignee}
+          </div>
+        ) : (
+          <div className="w-8 h-8 rounded-full bg-slate-200 shadow-sm flex items-center justify-center text-slate-400 ring-2 ring-white">
+            <User className="w-4 h-4" />
+          </div>
+        )}
+      </div>
+
+      {/* Footer — separated by thin line */}
+      <div className="flex justify-between items-center mt-auto pt-3 border-t border-slate-200/70">
+        <div>
+          {card.dueDate ? (
+            <span className="text-[11px] xl:text-[12.5px] font-semibold tracking-wide text-red-500">
+              Due: {new Date(card.dueDate).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+            </span>
+          ) : (
+            <span className="text-[11px] xl:text-[12.5px] font-semibold text-slate-400 tracking-wide">Due: NOT ASSIGNED</span>
+          )}
         </div>
         
-        <div className="flex space-x-3 text-gray-400">
-          <div className="flex items-center space-x-1 text-[11.5px] xl:text-[13px] font-semibold">
-            <Paperclip className="w-3 h-3" />
-            <span>{attachments}</span>
-          </div>
-          <div className="flex items-center space-x-1 text-[11.5px] xl:text-[13px] font-semibold">
-            <MessageCircle className="w-3 h-3" />
-            <span>{commentsCount}</span>
-          </div>
+        <div className="flex items-center gap-1.5 bg-slate-100/80 hover:bg-slate-200/50 text-slate-600 px-3.5 py-1.5 rounded-full text-[12.5px] xl:text-[13.5px] font-extrabold shadow-sm transition-colors">
+          <MessageCircle className="w-4 h-4 text-slate-500" />
+          <span>{commentsCount}</span>
         </div>
       </div>
     </>
@@ -206,7 +196,7 @@ const BoardCard: React.FC<{ card: Card; onEdit?: () => void; isEditing?: boolean
       {!isEditing && !isOverlay && (
         <motion.div
           layoutId={`card-${card.id}`}
-          transition={{ duration: 0 }} // Prevent fighting with dnd-kit's CSS transform during sorting
+          transition={{ type: "spring", stiffness: 200, damping: 28 }}
           className={
             isTransit
               ? "absolute inset-0 bg-slate-50/50 backdrop-blur-[2px] p-5 rounded-[1.25rem] border border-violet-200/60 pointer-events-none flex flex-col justify-between"

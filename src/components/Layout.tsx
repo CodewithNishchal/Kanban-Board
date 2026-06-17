@@ -26,6 +26,7 @@ const Layout: React.FC = () => {
   const [editingCardId, setEditingCardId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [priorityFilter, setPriorityFilter] = useState('All');
+  const [isLogsOpen, setIsLogsOpen] = useState(false);
 
   // Migrating layout state & Seed mockup cards on load
   useEffect(() => {
@@ -157,7 +158,7 @@ const Layout: React.FC = () => {
     >
       <div className="flex h-screen bg-slate-50 overflow-hidden relative">
         <Sidebar />
-        <div className="flex-1 flex flex-col overflow-hidden p-6 pl-8 min-w-0 transition-all duration-300">
+        <div className="flex-1 flex flex-col overflow-hidden p-6 pl-8 min-w-0 transition-all duration-[600ms]">
           <div className="flex-1 flex flex-col bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden min-w-0 w-full">
             {/* Card Header */}
             <div className="px-10 pt-5 pb-6 flex justify-between items-center gap-4 flex-wrap">
@@ -204,25 +205,20 @@ const Layout: React.FC = () => {
               </div>
 
               <div className="flex items-center space-x-3 ml-2 flex-shrink-0">
-                <button className="p-2.5 bg-slate-50 hover:bg-slate-100 text-gray-500 rounded-full border border-slate-100 transition-colors cursor-pointer flex items-center justify-center">
-                  <SlidersHorizontal className="w-4 h-4" />
-                </button>
                 <button 
                   onClick={() => {
-                    const title = prompt('Enter project task title:');
-                    if (title) {
-                      addCard('col-todo', title, 'medium', 'General', 10, 6);
-                    }
+                    setIsLogsOpen(true);
+                    setEditingCardId(null);
                   }}
                   className="px-6 py-2.5 bg-violet-600 hover:bg-violet-700 text-white font-bold text-sm rounded-full shadow-md shadow-violet-500/10 transition-all cursor-pointer flex items-center whitespace-nowrap"
                 >
-                  Create Project
+                  Access Logs
                 </button>
               </div>
             </div>
             
             {/* Board Area */}
-            <div className="flex-1 overflow-x-auto px-6 pb-10 custom-scrollbar">
+            <div className="flex-1 overflow-x-auto px-6 pb-2 custom-scrollbar">
               <div className="flex space-x-4 items-stretch h-full min-w-full">
                 {columnConfigs.map(col => (
                   <BoardColumn 
@@ -232,7 +228,10 @@ const Layout: React.FC = () => {
                     bgColorClass={col.bg}
                     dotColorClass={col.dot}
                     cards={getCardsForColumn(col.id)}
-                    onEditCard={setEditingCardId}
+                    onEditCard={(id) => {
+                      setEditingCardId(id);
+                      setIsLogsOpen(false);
+                    }}
                     editingCardId={editingCardId}
                     droppingId={droppingId}
                   />
@@ -245,13 +244,16 @@ const Layout: React.FC = () => {
         {/* Smooth CSS Spacer to seamlessly push the board without jitter */}
         <div 
           className="transition-all duration-300 ease-in-out flex-shrink-0"
-          style={{ width: editingCardId ? 420 : 0 }}
+          style={{ width: (editingCardId || isLogsOpen) ? 436 : 0 }}
         />
 
         <AnimatePresence>
           {editingCardId && (
+              <EditPanel key={`edit-${editingCardId}`} mode="edit" cardId={editingCardId} onClose={() => setEditingCardId(null)} />
+          )}
+          {isLogsOpen && (
             <div className="absolute right-0 top-0 bottom-0 flex z-40 shadow-2xl">
-              <EditPanel key={editingCardId} cardId={editingCardId} onClose={() => setEditingCardId(null)} />
+              <EditPanel key="logs-panel" mode="log" onClose={() => setIsLogsOpen(false)} />
             </div>
           )}
         </AnimatePresence>

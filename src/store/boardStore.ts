@@ -25,6 +25,7 @@ import type {
   SyncAction,
   Priority,
 } from '../types';
+import { TAB_ID } from '../sync/tabId';
 
 // ── Helpers ─────────────────────────────────────────────────
 
@@ -148,7 +149,7 @@ export const useBoardStore = create<BoardStore>()(
       _log: (message: string, externalTabId?: string) => {
         const entry: ActivityEntry = {
           id:        uid(),
-          tabId:     externalTabId ?? 'local',
+          tabId:     externalTabId ?? TAB_ID,
           timestamp: Date.now(),
           message,
         };
@@ -351,7 +352,7 @@ export const useBoardStore = create<BoardStore>()(
         const comment: CardComment = {
           id:        uid(),
           text,
-          tabId:     'local',
+          tabId:     TAB_ID,
           timestamp: Date.now(),
         };
 
