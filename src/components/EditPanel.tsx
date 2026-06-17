@@ -21,7 +21,7 @@ const EditPanel: React.FC<EditPanelProps> = ({ mode = 'edit', cardId, onClose })
   const deleteCard = useBoardStore(state => state.deleteCard);
   const addComment = useBoardStore(state => state.addComment);
 
-  const tick = useRelativeTimeRefresh(30000);
+  useRelativeTimeRefresh(30000);
 
   const card = (mode === 'edit' && cardId) ? cards[cardId] : undefined;
   const columnTitle = useBoardStore(state => state.columns.find(c => c.id === card?.columnId)?.title || 'Column');
@@ -191,7 +191,7 @@ const EditPanel: React.FC<EditPanelProps> = ({ mode = 'edit', cardId, onClose })
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-6 space-y-5 custom-scrollbar">
+        <div className="flex-1 overflow-y-auto pt-3.5 px-6 pb-6 space-y-5 custom-scrollbar">
           {/* Title */}
           <div>
             <label className="block text-[13px] font-extrabold text-slate-500 uppercase tracking-wider mb-2">Title</label>
@@ -373,8 +373,8 @@ const EditPanel: React.FC<EditPanelProps> = ({ mode = 'edit', cardId, onClose })
                   }
                 }}
                 placeholder="Write a comment..."
-                rows={3}
-                className="w-full pl-4 pr-12 py-3 bg-white border border-slate-200 rounded-xl text-[15px] font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all resize-none custom-scrollbar"
+                rows={2}
+                className="w-full pl-4 pr-12 py-2.5 bg-white border border-slate-200 rounded-xl text-[15px] font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all resize-none custom-scrollbar"
               />
               <button
                 onClick={handleAddComment}

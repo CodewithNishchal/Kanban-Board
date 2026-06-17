@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { DndContext, DragOverlay, closestCorners, useSensor, useSensors, PointerSensor, KeyboardSensor } from '@dnd-kit/core';
 import type { DropAnimation } from '@dnd-kit/core';
 import { sortableKeyboardCoordinates } from '@dnd-kit/sortable';
-import { SlidersHorizontal, Search } from 'lucide-react';
+import { Search } from 'lucide-react';
 import Sidebar from './Sidebar';
 import BoardColumn from './BoardColumn';
 import BoardCard from './BoardCard';
@@ -156,10 +156,26 @@ const Layout: React.FC = () => {
       onDragOver={handleDragOver}
       onDragEnd={handleDragEnd}
     >
-      <div className="flex h-screen bg-slate-50 overflow-hidden relative">
+      <div 
+        className="flex h-screen overflow-hidden relative"
+        style={{
+          backgroundImage: 'url("/Design/Gemini_Generated_Image_slosenslosenslos.png")',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundRepeat: 'no-repeat'
+        }}
+      >
         <Sidebar />
-        <div className="flex-1 flex flex-col overflow-hidden p-6 pl-8 min-w-0 transition-all duration-[600ms]">
-          <div className="flex-1 flex flex-col bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden min-w-0 w-full">
+        <div className="flex-1 flex flex-col overflow-hidden pt-6 pr-6 pl-4 pb-3 min-w-0 transition-all duration-[600ms]">
+          <div 
+            className="flex-1 flex flex-col rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden min-w-0 w-full"
+            style={{
+              backgroundImage: 'url("/Design/Gemini_Generated_Image_jav8d8jav8d8jav8.png")',
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
+              backgroundRepeat: 'no-repeat'
+            }}
+          >
             {/* Card Header */}
             <div className="px-10 pt-5 pb-6 flex justify-between items-center gap-4 flex-wrap">
               <input 
@@ -218,7 +234,7 @@ const Layout: React.FC = () => {
             </div>
             
             {/* Board Area */}
-            <div className="flex-1 overflow-x-auto px-6 pb-2 custom-scrollbar">
+            <div className="flex-1 overflow-x-auto px-6 pb-0 custom-scrollbar">
               <div className="flex space-x-4 items-stretch h-full min-w-full">
                 {columnConfigs.map(col => (
                   <BoardColumn 

@@ -76,7 +76,7 @@ const BoardColumn: React.FC<ColumnProps> = ({ id, title, bgColorClass, cards = [
       ref={setNodeRef} 
       id={id} 
       className={`flex-1 basis-80 min-w-[350px] flex flex-col p-4 rounded-2xl transition-all ${bgColorClass} ${isOver ? 'ring-2 ring-violet-500/20 shadow-inner' : ''}`}
-      style={{ minHeight: 'calc(100vh - 145px)' }}
+      style={{ height: 'calc(100vh - 160px)' }}
     >
       <div className="flex justify-between items-center mb-6 px-1">
         <div className="flex items-center min-w-0 flex-1 mr-2">
