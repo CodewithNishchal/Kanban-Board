@@ -40,7 +40,10 @@ Late-joining tabs gracefully sync using a dedicated `kanban-presence` channel. A
 1. Clone the repository:
    ```bash
    git clone https://github.com/CodewithNishchal/Kanban-Board
-2. Install dependencies:
+2. Change Directory to Project Directory:
+   ```bash
+   cd Kanban-Board
+3. Install dependencies:
    ```bash
    npm install
 3. Start the development server:
