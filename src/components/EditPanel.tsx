@@ -38,6 +38,28 @@ const EditPanel: React.FC<EditPanelProps> = ({ mode = 'edit', cardId, originRect
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
   const [editingCommentText, setEditingCommentText] = useState('');
 
+  const isDateError = (() => {
+    if (!dueDate) return false;
+    const parts = dueDate.split('-');
+    if (parts.length < 3) return false;
+    
+    const selectedYear = parseInt(parts[0], 10);
+    const selectedMonth = parseInt(parts[1], 10) - 1;
+    const selectedDay = parseInt(parts[2], 10);
+    
+    const selectedDate = new Date(selectedYear, selectedMonth, selectedDay);
+    
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    if (selectedDate < today) {
+      return true; // Cannot be in the past
+    }
+    
+    const currentYear = today.getFullYear();
+    return Math.abs(currentYear - selectedYear) > 5;
+  })();
+
   // Initialize local state once when the panel opens for a specific card
   useEffect(() => {
     if (mode === 'edit' && card) {
@@ -84,7 +106,7 @@ const EditPanel: React.FC<EditPanelProps> = ({ mode = 'edit', cardId, originRect
         updates.description = description;
         hasChanges = true;
       }
-      if (dueDate !== (card.dueDate || '')) {
+      if (dueDate !== (card.dueDate || '') && !isDateError) {
         updates.dueDate = dueDate;
         hasChanges = true;
       }
@@ -96,7 +118,7 @@ const EditPanel: React.FC<EditPanelProps> = ({ mode = 'edit', cardId, originRect
 
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [title, description, dueDate]);
+  }, [title, description, dueDate, isDateError]);
 
   if (mode === 'edit' && !card) return null;
 
@@ -257,8 +279,21 @@ const EditPanel: React.FC<EditPanelProps> = ({ mode = 'edit', cardId, originRect
                   type="date"
                   value={dueDate}
                   onChange={(e) => setDueDate(e.target.value)}
-                  className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-[15px] font-medium text-gray-700 focus:bg-white focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
+                  className={`w-full px-3 py-2.5 bg-slate-50 border ${isDateError ? 'border-red-400 focus:ring-red-500 text-red-600' : 'border-slate-200 focus:ring-violet-500 text-gray-700'} rounded-lg text-[15px] font-medium focus:bg-white focus:outline-none focus:ring-2 transition-all`}
                 />
+                <AnimatePresence>
+                  {isDateError && (
+                    <motion.p 
+                      key="date-error"
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      className="text-red-500 text-[11px] font-bold mt-2"
+                    >
+                      Please add a possible date
+                    </motion.p>
+                  )}
+                </AnimatePresence>
               </div>
 
               <div>
