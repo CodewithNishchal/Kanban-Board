@@ -225,7 +225,8 @@ export const useBoardStore = create<BoardStore>()(
           };
         });
 
-        get()._log(`Created card "${title}"`);
+        const colTitle = get().columns.find((c) => c.id === columnId)?.title ?? columnId;
+        get()._log(`Created card "${title}" in "${colTitle}"`);
         get()._broadcastAction?.({
           type: 'ADD_CARD',
           payload: { columnId, card },
@@ -285,7 +286,8 @@ export const useBoardStore = create<BoardStore>()(
           return { columns, cards: remainingCards };
         });
 
-        get()._log(`Deleted card "${card.title}"`);
+        const colTitle = get().columns.find((c) => c.id === card.columnId)?.title ?? card.columnId;
+        get()._log(`Deleted card "${card.title}" from "${colTitle}"`);
         get()._broadcastAction?.({
           type: 'DELETE_CARD',
           payload: { cardId, columnId: card.columnId },
@@ -353,9 +355,9 @@ export const useBoardStore = create<BoardStore>()(
           const toTitle = get().columns.find((c) => c.id === toColumnId)?.title ?? toColumnId;
 
           if (actualFromColumnId === toColumnId) {
-            get()._log(`Reordered "${card.title}" in ${toTitle}`);
+            get()._log(`Reordered "${card.title}" in "${toTitle}"`);
           } else {
-            get()._log(`Card "${card.title}" moved from ${fromTitle} to ${toTitle}`);
+            get()._log(`Card "${card.title}" moved from "${fromTitle}" to "${toTitle}"`);
           }
 
           get()._broadcastAction?.({

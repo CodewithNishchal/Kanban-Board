@@ -1,6 +1,6 @@
 import type { DragEndEvent, DragStartEvent, DragOverEvent } from '@dnd-kit/core';
 import { useBoardStore } from '../store/boardStore';
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 
 export function useDragAndDrop() {
   const moveCard = useBoardStore((s) => s.moveCard);
@@ -101,6 +101,34 @@ export function useDragAndDrop() {
     });
   }, [processDragOver]);
 
+  const handleDragCancel = useCallback(() => {
+    if (rafRef.current !== null) {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+    }
+    setActiveId((prev) => {
+      if (prev) setTransitCard(prev, false);
+      return null;
+    });
+    setActiveColumn(null);
+    setDroppingId(null);
+  }, [setTransitCard]);
+
+  // Safety mechanism: if window loses focus or hides during a drag, abort the drag state
+  useEffect(() => {
+    const handleVisibilityLoss = () => {
+      if (document.hidden || !document.hasFocus()) {
+        handleDragCancel();
+      }
+    };
+    window.addEventListener('blur', handleVisibilityLoss);
+    window.addEventListener('visibilitychange', handleVisibilityLoss);
+    return () => {
+      window.removeEventListener('blur', handleVisibilityLoss);
+      window.removeEventListener('visibilitychange', handleVisibilityLoss);
+    };
+  }, [handleDragCancel]);
+
   const handleDragEnd = (event: DragEndEvent) => {
     // Cancel any pending RAF from dragOver
     if (rafRef.current !== null) {
@@ -142,5 +170,5 @@ export function useDragAndDrop() {
     }
   };
 
-  return { activeId, activeColumn, droppingId, handleDragStart, handleDragOver, handleDragEnd };
+  return { activeId, activeColumn, droppingId, handleDragStart, handleDragOver, handleDragEnd, handleDragCancel };
 }

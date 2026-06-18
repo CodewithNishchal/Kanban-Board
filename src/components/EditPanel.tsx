@@ -130,6 +130,15 @@ const EditPanel: React.FC<EditPanelProps> = ({ mode = 'edit', cardId, originRect
   };
 
   if (mode === 'log') {
+    // Build tab ID mapping (oldest first to ensure stable tab numbering)
+    const tabMap = new Map<string, number>();
+    let nextTabNum = 1;
+    [...activityLog].reverse().forEach(entry => {
+      if (!tabMap.has(entry.tabId)) {
+        tabMap.set(entry.tabId, nextTabNum++);
+      }
+    });
+
     return (
       <motion.div
         initial={{ x: 420 }}
@@ -158,7 +167,7 @@ const EditPanel: React.FC<EditPanelProps> = ({ mode = 'edit', cardId, originRect
                   <div className="flex justify-between items-center text-xs font-bold">
                     <span className="text-gray-400">{getRelativeTime(entry.timestamp)}</span>
                     <span className="bg-slate-50 px-2.5 py-1 rounded-md border border-slate-200 text-slate-500 uppercase tracking-wider text-[10px]">
-                      TAB {entry.tabId.slice(-4).toUpperCase()}
+                      TAB {tabMap.get(entry.tabId)}
                     </span>
                   </div>
                 </div>

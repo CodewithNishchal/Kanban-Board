@@ -1,5 +1,6 @@
 import type React from 'react';
-import { MessageCircle, User, Radio } from 'lucide-react';
+import { useState } from 'react';
+import { MessageCircle, User, Radio, Check } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -14,7 +15,23 @@ const BoardCard: React.FC<{ card: Card; onEdit?: (rect: DOMRect) => void; isEdit
       easing: 'cubic-bezier(0.25, 1, 0.5, 1)'
     }
   });
+  const columns = useBoardStore(state => state.columns);
+  const moveCard = useBoardStore(state => state.moveCard);
   const inTransitCardIds = useBoardStore(state => state.inTransitCardIds);
+  const [isSlidingOut, setIsSlidingOut] = useState(false);
+
+  const handleNextColumn = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const colIndex = columns.findIndex(c => c.id === card.columnId);
+    if (colIndex !== -1 && colIndex < columns.length - 1) {
+      const nextCol = columns[colIndex + 1];
+      setIsSlidingOut(true);
+      setTimeout(() => {
+        moveCard(card.id, nextCol.id, nextCol.cardIds.length);
+        setIsSlidingOut(false);
+      }, 300);
+    }
+  };
   const isTransit = inTransitCardIds.includes(card.id) && !isDragging && !isOverlay;
   const remoteEditingCardIds = useBoardStore(state => state.editingCardIds);
   const isRemoteEditing = remoteEditingCardIds.includes(card.id) && !isEditing && !isOverlay;
@@ -143,23 +160,36 @@ const BoardCard: React.FC<{ card: Card; onEdit?: (rect: DOMRect) => void; isEdit
       )}
       
       {/* Priority Badge — pill-shaped */}
-      <div className="mb-3 relative z-10">
-        {isRemoteEditing && (
-          <div className="absolute -top-1 -right-1 flex items-center gap-1 bg-amber-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow-md z-10">
-            <motion.span
-              animate={{ opacity: [1, 0.4, 1] }}
-              transition={{ duration: 1.2, repeat: Infinity }}
-              className="w-1.5 h-1.5 rounded-full bg-white inline-block"
-            />
-            Editing
-          </div>
+      <div className="mb-3 relative z-10 flex justify-between items-start">
+        <div className="relative">
+          {isRemoteEditing && (
+            <div className="absolute -top-3 -right-3 flex items-center gap-1 bg-amber-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow-md z-10">
+              <motion.span
+                animate={{ opacity: [1, 0.4, 1] }}
+                transition={{ duration: 1.2, repeat: Infinity }}
+                className="w-1.5 h-1.5 rounded-full bg-white inline-block"
+              />
+              Editing
+            </div>
+          )}
+          <span className={`text-[11px] xl:text-[12.5px] font-bold px-3.5 py-1.5 rounded-full capitalize inline-block tracking-wide ${card.priority === 'high' ? 'bg-red-100/80 text-red-600' :
+            card.priority === 'medium' ? 'bg-amber-100/80 text-amber-600' :
+              'bg-blue-100/80 text-blue-600'
+            }`}>
+            {card.priority}
+          </span>
+        </div>
+
+        {/* Next Column Button */}
+        {!isRemoteEditing && columns.findIndex(c => c.id === card.columnId) < columns.length - 1 && (
+          <button
+            onClick={handleNextColumn}
+            className="opacity-0 group-hover:opacity-100 transition-all duration-300 w-7 h-7 rounded-full bg-white/40 hover:bg-white/80 backdrop-blur-md border border-white/60 shadow-[0_2px_10px_rgba(0,0,0,0.1)] flex items-center justify-center text-violet-600 hover:text-violet-900 hover:scale-110 active:scale-95 z-20"
+            title="Move to next column"
+          >
+            <Check className="w-4 h-4 font-bold" />
+          </button>
         )}
-        <span className={`text-[11px] xl:text-[12.5px] font-bold px-3.5 py-1.5 rounded-full capitalize inline-block tracking-wide ${card.priority === 'high' ? 'bg-red-100/80 text-red-600' :
-          card.priority === 'medium' ? 'bg-amber-100/80 text-amber-600' :
-            'bg-blue-100/80 text-blue-600'
-          }`}>
-          {card.priority}
-        </span>
       </div>
 
       {/* Title */}
@@ -208,7 +238,8 @@ const BoardCard: React.FC<{ card: Card; onEdit?: (rect: DOMRect) => void; isEdit
     >
       <motion.div
         layout
-        transition={{ duration: 0.4, ease: [0.25, 1, 0.5, 1] }}
+        animate={isSlidingOut ? { x: '50%', opacity: 0, scale: 0.9 } : { x: 0, opacity: 1, scale: 1 }}
+        transition={{ duration: 0.3, ease: [0.25, 1, 0.5, 1] }}
         className="w-full"
       >
         <div
@@ -224,7 +255,7 @@ const BoardCard: React.FC<{ card: Card; onEdit?: (rect: DOMRect) => void; isEdit
               ? "border-2 border-black border-dashed rounded-[1.25rem] w-full aspect-[1.8] bg-black/5"
               : isTransit
                 ? "relative overflow-hidden bg-slate-50/50 backdrop-blur-[2px] p-5 rounded-[1.25rem] border border-violet-200/60 shadow-[0_0_12px_rgba(139,92,246,0.06)] select-none pointer-events-none transition-all duration-300 w-full aspect-[1.8] flex flex-col justify-between"
-                : `p-5 rounded-[1.25rem] cursor-grab active:cursor-grabbing transition-all duration-300 border border-white/60 border-b-white/10 border-r-white/10 backdrop-blur-2xl shadow-[inset_0_1px_1px_rgba(255,255,255,0.9),inset_1px_0_1px_rgba(255,255,255,0.8),0_8px_32px_rgba(0,0,0,0.2)] w-full aspect-[1.8] flex flex-col justify-between ${isEditing ? 'scale-95 opacity-50 brightness-50 contrast-125 z-0' : isRemoteEditing ? 'opacity-95 relative overflow-hidden shadow-[0_4px_20px_rgba(245,158,11,0.15)]' : 'hover:scale-[1.01] hover:shadow-[inset_0_1px_1px_rgba(255,255,255,1),inset_1px_0_1px_rgba(255,255,255,1),0_12px_40px_rgba(0,0,0,0.25)]'}`
+                : `group p-5 rounded-[1.25rem] cursor-grab active:cursor-grabbing transition-all duration-300 border border-white/60 border-b-white/10 border-r-white/10 backdrop-blur-2xl shadow-[inset_0_1px_1px_rgba(255,255,255,0.9),inset_1px_0_1px_rgba(255,255,255,0.8),0_8px_32px_rgba(0,0,0,0.2)] w-full aspect-[1.8] flex flex-col justify-between ${isEditing ? 'scale-95 opacity-50 brightness-50 contrast-125 z-0' : isRemoteEditing ? 'opacity-95 relative overflow-hidden shadow-[0_4px_20px_rgba(245,158,11,0.15)]' : 'hover:scale-[1.01] hover:shadow-[inset_0_1px_1px_rgba(255,255,255,1),inset_1px_0_1px_rgba(255,255,255,1),0_12px_40px_rgba(0,0,0,0.25)]'}`
           }
           style={
             isTransit || isDragging

@@ -23,7 +23,7 @@ const Layout: React.FC = () => {
   const setBoardTitle = useBoardStore(state => state.setBoardTitle);
   const setEditingCard = useBoardStore(state => state.setEditingCard);
   const setTransitCard = useBoardStore(state => state.setTransitCard);
-  const { activeId, droppingId, handleDragStart, handleDragOver, handleDragEnd } = useDragAndDrop();
+  const { activeId, droppingId, handleDragStart, handleDragOver, handleDragEnd, handleDragCancel } = useDragAndDrop();
 
   const [editingCardId, setEditingCardId] = useState<string | null>(null);
   const [editingCardRect, setEditingCardRect] = useState<DOMRect | null>(null);
@@ -169,6 +169,7 @@ const Layout: React.FC = () => {
       onDragStart={handleDragStart}
       onDragOver={handleDragOver}
       onDragEnd={handleDragEnd}
+      onDragCancel={handleDragCancel}
     >
       <div
         className="flex h-screen overflow-hidden relative"
@@ -241,7 +242,7 @@ const Layout: React.FC = () => {
                     if (editingCardId) setEditingCard(editingCardId, false);
                     setEditingCardId(null);
                   }}
-                  className="px-8 py-2.5 bg-violet-600 hover:bg-violet-700 text-white font-bold text-sm rounded-full shadow-md shadow-violet-500/10 transition-all cursor-pointer flex items-center whitespace-nowrap"
+                  className="px-8 py-2.5 bg-gradient-to-r from-violet-50 to-indigo-50 hover:from-violet-100 hover:to-indigo-100 text-violet-700 font-bold text-sm rounded-full border border-violet-200/60 shadow-sm hover:shadow-md hover:shadow-violet-500/5 transition-all cursor-pointer flex items-center whitespace-nowrap"
                 >
                   <Activity className="w-4 h-4 mr-2" />
                   Access Logs
@@ -261,6 +262,13 @@ const Layout: React.FC = () => {
                     dotColorClass={col.dot}
                     cards={getCardsForColumn(col.id)}
                     onEditCard={(id, rect) => {
+                      if (editingCardId === id) {
+                        setEditingCard(id, false);
+                        setEditingCardId(null);
+                        setEditingCardRect(null);
+                        return; // Toggle off and exit early
+                      }
+
                       if (editingCardId && editingCardId !== id) {
                         setEditingCard(editingCardId, false);
                       }
