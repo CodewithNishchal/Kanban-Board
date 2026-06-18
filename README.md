@@ -2,30 +2,34 @@
 
 A high-performance, local-first Kanban board application built to demonstrate real-time collaborative capabilities within the browser, without the need for a backend, database, or user accounts.
 
-## 🚀 Features
+## ✨ Features
 
-* **Visual Workflow**
-    * Manage tasks through a column-based system: `To Do`, `In Progress`, `In Review`, `Done`.
-* **Real-time Collaboration**
-    * Utilizes the `BroadcastChannel` API for instant multi-tab synchronization.
-    * Actions performed in one browser tab—such as moving a card, editing details, or renaming a column—are synchronized instantly across all other open tabs without a backend or WebSockets.
-* **Persistence**
-    * State is automatically saved to `localStorage` (debounced by 250ms) to ensure data survives page refreshes.
-* **Interactive Design**
-    * Features drag-and-drop reordering with a visible drop indicator.
-    * Inline card editing via a persistent side panel (no modals).
-    * Live activity log tracking the last 20 actions with relative timestamps.
-* **Custom Confirmations**
-    * Inline deletion flow to ensure data safety without using browser-native `confirm()` alerts.
-* **Live Monitoring**
-    * Includes a live tab count indicator and a periodic activity log refresh (60s) to keep relative timestamps accurate.
+- **Multi-Tab Live Synchronization**: Open the board in multiple tabs or windows. Any action (moving a card, editing a title, adding a comment) is instantly reflected across all open tabs in real-time without the need for a backend server or WebSockets.
+- **Drag and Drop Interface**: Smooth, animated drag-and-drop experience for moving cards between columns and reordering them, powered by `@dnd-kit`.
+- **Persistent State**: The board's entire state (cards, columns, and activity history) is automatically persisted to `localStorage` and instantly restored upon reloading or late-joining tabs.
+- **Robust Conflict Resolution**: Built-in mechanisms to handle simultaneous edits and network race conditions using a Last-Write-Wins (LWW) strategy.
+- **Interactive Activity Log**: A global, collapsible sidebar that tracks and logs the last 20 actions across all active tabs.
+- **Optimistic UI**: Interactions respond instantly. State changes are rendered locally before being broadcasted out, ensuring zero latency for the active user.
 
-## 🏗️ Architecture: BroadcastChannel & Sync Logic
+## 🏗️ Architecture
 
-This project uses the `BroadcastChannel` API to coordinate state across multiple tabs on the same origin.
+The application is built around a centralized, reactive state management pattern using **React**, **Zustand**, and the native browser **BroadcastChannel API**. 
 
-### Echo-Loop Prevention
-To prevent infinite update loops where a tab receives its own broadcast, every `BroadcastMessage` includes a unique `originTabId`. When a tab receives an event, it verifies this ID against its own; if it matches, the event is ignored, ensuring redundant processing is avoided.
+### State Management (`Zustand`)
+The single source of truth is the `useBoardStore`. To maintain $O(1)$ lookups and simple updates:
+- Cards are stored in a flat dictionary (`Record<string, Card>`).
+- Columns simply hold an array of ordered `cardIds`. 
+- State is debounced and persisted locally using Zustand's `persist` middleware.
+
+### Multi-Tab Synchronization & Echo Loop Prevention
+The technical centerpiece of this application is its zero-backend, multi-tab sync system. It strictly enforces one-way data flows to prevent infinite sync loops (echo loops):
+
+1. **Local Mutations (The Transmitter)**: When a user interacts with the UI, the component triggers a standard mutation (e.g., `moveCard`). The store updates the local state and then calls an injected `_broadcastAction` function to transmit the change over the `BroadcastChannel`.
+2. **Tab Identification (The Filter)**: Every browser session generates a unique `TAB_ID` upon load. When the channel listener receives a message, it immediately drops any message originating from its own `TAB_ID`.
+3. **Remote Application (The Silent Listener)**: When Tab B receives an event from Tab A, it passes the payload to `applyRemoteAction`. This specialized function acts as a massive switchboard that updates the Zustand store locally, but **structurally bypasses the `_broadcastAction` trigger**. Because it is silent, an incoming remote update can never trigger an outgoing broadcast, making an echo loop impossible.
+
+### Dynamic Presence System
+Late-joining tabs gracefully sync using a dedicated `kanban-presence` channel. Active tabs periodically exchange heartbeat (`PING` / `PONG`) messages. This allows the application to maintain an accurate count of active collaborators without polling a server.
 
 ## 🛠️ Getting Started
 
