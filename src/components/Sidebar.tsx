@@ -61,7 +61,7 @@ const Sidebar: React.FC = () => {
       {/* Bottom Actions */}
       <div className="mt-auto mb-4 border-t border-indigo-900/50 pt-4">
         <div className="px-[16px] group-hover:px-[26px] mb-2 transition-all duration-[600ms] delay-0 group-hover:delay-[600ms]">
-          <button 
+          <button
             onClick={() => {
               const { autoSortEnabled, setAutoSortEnabled } = useBoardStore.getState();
               setAutoSortEnabled(!autoSortEnabled);
@@ -80,18 +80,18 @@ const Sidebar: React.FC = () => {
         </nav>
       </div>
 
+
       {/* User Profile */}
       <div className="flex items-center whitespace-nowrap mt-2 mb-4 pl-[20px] group-hover:pl-[30px] transition-all duration-[600ms] delay-0 group-hover:delay-[600ms]">
-        <div className="relative flex-shrink-0 w-10 h-10">
-          <img src="https://i.pravatar.cc/150?u=sophia" alt="User" className="w-10 h-10 rounded-full border-2 border-[#120836] shadow-sm" />
+        <div className="relative flex-shrink-0 w-10 h-10 flex items-center justify-center bg-indigo-900/40 rounded-full border-2 border-[#120836] shadow-sm">
+          <Users className="w-5 h-5 text-indigo-300" />
           <div className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 border-2 border-[#120836] rounded-full"></div>
         </div>
         <div className="ml-5 opacity-0 group-hover:opacity-100 transition-opacity duration-[600ms] delay-0 group-hover:delay-[600ms]">
           <p className="text-sm font-bold text-white flex items-center">
-            Sophia Williams
-            <svg className="w-4 h-4 text-sky-400 ml-1" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"></path></svg>
+            Guest User
           </p>
-          <p className="text-[11px] text-indigo-300/70">sophia@alignui.com</p>
+          <p className="text-[11px] text-indigo-300/70">guest@kanban.local</p>
         </div>
       </div>
     </div>
