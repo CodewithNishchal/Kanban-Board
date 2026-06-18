@@ -5,9 +5,9 @@ import {
   Folder,
   Users,
   FileText,
-  Settings,
   Headphones
 } from 'lucide-react';
+import { useBoardStore } from '../store/boardStore';
 
 const Sidebar: React.FC = () => {
   return (
@@ -60,8 +60,22 @@ const Sidebar: React.FC = () => {
 
       {/* Bottom Actions */}
       <div className="mt-auto mb-4 border-t border-indigo-900/50 pt-4">
+        <div className="px-[16px] group-hover:px-[26px] mb-2 transition-all duration-[600ms] delay-0 group-hover:delay-[600ms]">
+          <button 
+            onClick={() => {
+              const { autoSortEnabled, setAutoSortEnabled } = useBoardStore.getState();
+              setAutoSortEnabled(!autoSortEnabled);
+            }}
+            className="w-full flex items-center py-2 px-3 rounded-2xl hover:bg-white/5 transition-all group/toggle"
+          >
+            <div className="relative w-8 h-8 flex items-center justify-center">
+              <div className={`w-8 h-4 rounded-full transition-colors ${useBoardStore(state => state.autoSortEnabled) ? 'bg-violet-600' : 'bg-indigo-900/50'}`}></div>
+              <div className={`absolute top-2 w-3 h-3 bg-white rounded-full transition-transform shadow-sm ${useBoardStore(state => state.autoSortEnabled) ? 'right-2 translate-x-[2px] -translate-y-[2px]' : 'left-2 -translate-x-[2px] -translate-y-[2px]'}`}></div>
+            </div>
+            <span className="ml-4 text-sm font-semibold text-indigo-200/70 group-hover/toggle:text-white opacity-0 group-hover:opacity-100 transition-opacity duration-[600ms] delay-0 group-hover:delay-[600ms] whitespace-nowrap">Auto Sort</span>
+          </button>
+        </div>
         <nav className="flex flex-col space-y-0.5">
-          <NavItem icon={<Settings className="w-5 h-5" />} label="Settings" />
           <NavItem icon={<Headphones className="w-5 h-5" />} label="Support" />
         </nav>
       </div>

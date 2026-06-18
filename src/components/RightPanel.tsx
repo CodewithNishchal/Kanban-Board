@@ -42,6 +42,7 @@ const RightPanel: React.FC<RightPanelProps> = ({ cardId, onClose }) => {
   // Sync state when card changes
   useEffect(() => {
     if (card) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setTitle(card.title);
       setDescription(card.description || '');
       setPriority(card.priority);
@@ -53,6 +54,7 @@ const RightPanel: React.FC<RightPanelProps> = ({ cardId, onClose }) => {
       }
       prevCardId.current = card.id;
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [card?.id]); // Only run when the selected card ID changes, not on every store update!
 
   // Flush edits to store
@@ -74,6 +76,7 @@ const RightPanel: React.FC<RightPanelProps> = ({ cardId, onClose }) => {
   useEffect(() => {
     // Flush on unmount or when switching cards
     return () => handleSave();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cardId]);
 
   // Tab switch handler

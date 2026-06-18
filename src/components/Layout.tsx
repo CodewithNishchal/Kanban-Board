@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { DndContext, DragOverlay, closestCorners, useSensor, useSensors, PointerSensor, KeyboardSensor } from '@dnd-kit/core';
 import type { DropAnimation } from '@dnd-kit/core';
 import { sortableKeyboardCoordinates } from '@dnd-kit/sortable';
-import { Search } from 'lucide-react';
+import { Search, Activity } from 'lucide-react';
 import Sidebar from './Sidebar';
 import BoardColumn from './BoardColumn';
 import BoardCard from './BoardCard';
@@ -21,18 +21,31 @@ const Layout: React.FC = () => {
   const addCard = useBoardStore(state => state.addCard);
   const boardTitle = useBoardStore(state => state.boardTitle);
   const setBoardTitle = useBoardStore(state => state.setBoardTitle);
+  const setEditingCard = useBoardStore(state => state.setEditingCard);
+  const setTransitCard = useBoardStore(state => state.setTransitCard);
   const { activeId, droppingId, handleDragStart, handleDragOver, handleDragEnd } = useDragAndDrop();
 
   const [editingCardId, setEditingCardId] = useState<string | null>(null);
+  const [editingCardRect, setEditingCardRect] = useState<DOMRect | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [priorityFilter, setPriorityFilter] = useState('All');
   const [isLogsOpen, setIsLogsOpen] = useState(false);
+
+  // Sync our local editing and dragging state to any newly joined tabs
+  useEffect(() => {
+    if (editingCardId) {
+      setEditingCard(editingCardId, true);
+    }
+    if (activeId) {
+      setTransitCard(activeId, true);
+    }
+  }, [activeTabs, editingCardId, setEditingCard, activeId, setTransitCard]);
 
   // Migrating layout state & Seed mockup cards on load
   useEffect(() => {
     // 1. Rename/restructure columns to the requested 4-column layout
     const hasReview = columns.some(c => c.id === 'col-in-review');
-    const needsRename = columns.some(c => 
+    const needsRename = columns.some(c =>
       (c.id === 'col-todo' && c.title !== 'To Do') ||
       (c.id === 'col-in-progress' && c.title !== 'In Progress') ||
       (c.id === 'col-done' && c.title !== 'Done')
@@ -91,27 +104,28 @@ const Layout: React.FC = () => {
       addCard('col-todo', 'Wireframing, mockups, clients collaboration', 'medium', 'Web Design', 50, 6);
       addCard('col-todo', 'Wireframing, mockups, clients collaboration', 'high', 'App Development', 60, 6);
       addCard('col-todo', 'Wireframing, mockups, clients collaboration', 'low', 'Mobile App', 65, 6);
-      
+
       // In Progress Column
       addCard('col-in-progress', 'Wireframing, mockups, clients collaboration', 'medium', 'Mobile App', 30, 6);
       addCard('col-in-progress', 'Wireframing, mockups, clients collaboration', 'low', 'Dashboard', 40, 6);
-      
+
       // In Review Column
       addCard('col-in-review', 'Wireframing, mockups, clients collaboration', 'medium', 'Web Development', 50, 6);
-      
+
       // Done Column
       addCard('col-done', 'Wireframing, mockups, clients collaboration', 'low', 'Dashboard', 90, 6);
       addCard('col-done', 'Wireframing, mockups, clients collaboration', 'high', 'Landing Page', 70, 6);
       addCard('col-done', 'Wireframing, mockups, clients collaboration', 'high', 'App Development', 80, 6);
     }
+
   }, [columns, addCard]);
 
   // Map the default store column IDs to their UI visual properties
   const columnConfigs = [
-    { id: 'col-todo', title: 'To Do', bg: 'bg-slate-50/70', dot: '' },
-    { id: 'col-in-progress', title: 'In Progress', bg: 'bg-slate-50/70', dot: '' },
-    { id: 'col-in-review', title: 'In Review', bg: 'bg-slate-50/70', dot: '' },
-    { id: 'col-done', title: 'Done', bg: 'bg-slate-50/70', dot: '' }
+    { id: 'col-todo', title: 'To Do', bg: 'bg-white/10 backdrop-blur-2xl border border-white/40 shadow-[inset_0_1px_2px_rgba(255,255,255,0.8),0_8px_32px_rgba(0,0,0,0.15)]', dot: '' },
+    { id: 'col-in-progress', title: 'In Progress', bg: 'bg-white/10 backdrop-blur-2xl border border-white/40 shadow-[inset_0_1px_2px_rgba(255,255,255,0.8),0_8px_32px_rgba(0,0,0,0.15)]', dot: '' },
+    { id: 'col-in-review', title: 'In Review', bg: 'bg-white/10 backdrop-blur-2xl border border-white/40 shadow-[inset_0_1px_2px_rgba(255,255,255,0.8),0_8px_32px_rgba(0,0,0,0.15)]', dot: '' },
+    { id: 'col-done', title: 'Done', bg: 'bg-white/10 backdrop-blur-2xl border border-white/40 shadow-[inset_0_1px_2px_rgba(255,255,255,0.8),0_8px_32px_rgba(0,0,0,0.15)]', dot: '' }
   ];
 
   const getCardsForColumn = (columnId: string) => {
@@ -149,14 +163,14 @@ const Layout: React.FC = () => {
   };
 
   return (
-    <DndContext 
+    <DndContext
       sensors={sensors}
       collisionDetection={closestCorners}
       onDragStart={handleDragStart}
       onDragOver={handleDragOver}
       onDragEnd={handleDragEnd}
     >
-      <div 
+      <div
         className="flex h-screen overflow-hidden relative"
         style={{
           backgroundImage: 'url("/Design/Gemini_Generated_Image_slosenslosenslos.png")',
@@ -166,8 +180,8 @@ const Layout: React.FC = () => {
         }}
       >
         <Sidebar />
-        <div className="flex-1 flex flex-col overflow-hidden pt-6 pr-6 pl-4 pb-3 min-w-0 transition-all duration-[600ms]">
-          <div 
+        <div className="flex-1 flex flex-col overflow-hidden pt-6 pr-6 pl-4 pb-1 min-w-0 transition-all duration-[600ms]">
+          <div
             className="flex-1 flex flex-col rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden min-w-0 w-full"
             style={{
               backgroundImage: 'url("/Design/Gemini_Generated_Image_jav8d8jav8d8jav8.png")',
@@ -178,13 +192,13 @@ const Layout: React.FC = () => {
           >
             {/* Card Header */}
             <div className="px-10 pt-5 pb-6 flex justify-between items-center gap-4 flex-wrap">
-              <input 
+              <input
                 value={boardTitle}
                 onChange={(e) => setBoardTitle(e.target.value)}
                 className="text-[36px] font-extrabold text-[#120836] tracking-tight bg-transparent border-none outline-none hover:bg-slate-50 focus:bg-white focus:ring-2 focus:ring-violet-100 rounded-lg px-2 py-1 -ml-2 transition-all min-w-[150px] max-w-[40%] flex-shrink-0"
                 style={{ width: `${Math.max(10, boardTitle.length)}ch` }}
               />
-              
+
               <div className="flex-1 flex items-center justify-end gap-4">
                 {/* Search */}
                 <div className="relative w-full max-w-xs">
@@ -197,9 +211,9 @@ const Layout: React.FC = () => {
                     className="w-full pl-9 pr-4 py-2 bg-slate-50 rounded-full text-sm font-medium outline-none border border-slate-200 focus:ring-2 focus:ring-violet-500 transition-all"
                   />
                 </div>
-                
+
                 {/* Priority Filter */}
-                <select 
+                <select
                   value={priorityFilter}
                   onChange={(e) => setPriorityFilter(e.target.value)}
                   className="px-4 py-2 bg-slate-50 rounded-full text-sm font-medium text-gray-700 outline-none border border-slate-200 focus:ring-2 focus:ring-violet-500 transition-all cursor-pointer appearance-none pr-8 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIGZpbGw9Im5vbmUiIHZpZXdCb3g9IjAgMCAyNCAyNCIgc3Ryb2tlPSIjNmI3MjgwIj48cGF0aCBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiIHN0cm9rZS13aWR0aD0iMiIgZD0iTTE5IDlsLTcgNy03LTciPjwvcGF0aD48L3N2Zz4=')] bg-[length:16px_16px] bg-no-repeat bg-[right_10px_center]"
@@ -221,32 +235,47 @@ const Layout: React.FC = () => {
               </div>
 
               <div className="flex items-center space-x-3 ml-2 flex-shrink-0">
-                <button 
+                <button
                   onClick={() => {
                     setIsLogsOpen(true);
+                    if (editingCardId) setEditingCard(editingCardId, false);
                     setEditingCardId(null);
                   }}
-                  className="px-6 py-2.5 bg-violet-600 hover:bg-violet-700 text-white font-bold text-sm rounded-full shadow-md shadow-violet-500/10 transition-all cursor-pointer flex items-center whitespace-nowrap"
+                  className="px-8 py-2.5 bg-violet-600 hover:bg-violet-700 text-white font-bold text-sm rounded-full shadow-md shadow-violet-500/10 transition-all cursor-pointer flex items-center whitespace-nowrap"
                 >
+                  <Activity className="w-4 h-4 mr-2" />
                   Access Logs
                 </button>
               </div>
             </div>
-            
+
             {/* Board Area */}
             <div className="flex-1 overflow-x-auto px-6 pb-0 custom-scrollbar">
               <div className="flex space-x-4 items-stretch h-full min-w-full">
                 {columnConfigs.map(col => (
-                  <BoardColumn 
+                  <BoardColumn
                     key={col.id}
-                    id={col.id} 
-                    title={col.title} 
+                    id={col.id}
+                    title={col.title}
                     bgColorClass={col.bg}
                     dotColorClass={col.dot}
                     cards={getCardsForColumn(col.id)}
-                    onEditCard={(id) => {
+                    onEditCard={(id, rect) => {
+                      if (editingCardId && editingCardId !== id) {
+                        setEditingCard(editingCardId, false);
+                      }
                       setEditingCardId(id);
+                      setEditingCard(id, true);
+                      if (rect) setEditingCardRect(rect);
                       setIsLogsOpen(false);
+
+                      // Scroll Kanban board to ensure the active column stays in view
+                      setTimeout(() => {
+                        const colElement = document.getElementById(col.id);
+                        if (colElement) {
+                          colElement.scrollIntoView({ behavior: 'smooth', inline: 'center' });
+                        }
+                      }, 50);
                     }}
                     editingCardId={editingCardId}
                     droppingId={droppingId}
@@ -256,16 +285,16 @@ const Layout: React.FC = () => {
             </div>
           </div>
         </div>
-        
+
         {/* Smooth CSS Spacer to seamlessly push the board without jitter */}
-        <div 
+        <div
           className="transition-all duration-300 ease-in-out flex-shrink-0"
           style={{ width: (editingCardId || isLogsOpen) ? 436 : 0 }}
         />
 
         <AnimatePresence>
           {editingCardId && (
-              <EditPanel key={`edit-${editingCardId}`} mode="edit" cardId={editingCardId} onClose={() => setEditingCardId(null)} />
+            <EditPanel key={`edit-${editingCardId}`} mode="edit" cardId={editingCardId} originRect={editingCardRect} onClose={() => { setEditingCard(editingCardId, false); setEditingCardId(null); setEditingCardRect(null); }} />
           )}
           {isLogsOpen && (
             <div className="absolute right-0 top-0 bottom-0 flex z-40 shadow-2xl">

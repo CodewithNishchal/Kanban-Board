@@ -66,15 +66,17 @@ export interface BoardState {
 // any unhandled action types at compile time.
 
 export type SyncAction =
-  | { type: 'ADD_CARD';        payload: { columnId: string; card: Card } }
-  | { type: 'EDIT_CARD';       payload: { cardId: string; updates: Partial<Card> } }
-  | { type: 'DELETE_CARD';     payload: { cardId: string; columnId: string } }
-  | { type: 'RENAME_COLUMN';   payload: { columnId: string; title: string } }
-  | { type: 'MOVE_CARD';       payload: { cardId: string; fromColumnId: string; toColumnId: string; toIndex: number } }
+  | { type: 'ADD_CARD'; payload: { columnId: string; card: Card } }
+  | { type: 'EDIT_CARD'; payload: { cardId: string; updates: Partial<Card> } }
+  | { type: 'DELETE_CARD'; payload: { cardId: string; columnId: string } }
+  | { type: 'RENAME_COLUMN'; payload: { columnId: string; title: string } }
+  | { type: 'MOVE_CARD'; payload: { cardId: string; fromColumnId: string; toColumnId: string; toIndex: number } }
   | { type: 'EDIT_BOARD_TITLE'; payload: { title: string } }
-  | { type: 'ADD_COMMENT';     payload: { cardId: string; comment: CardComment } }
-  | { type: 'LOG_ACTION';      payload: { entry: ActivityEntry } }
-  | { type: 'SET_TRANSIT';     payload: { cardId: string | null } };
+  | { type: 'ADD_COMMENT'; payload: { cardId: string; comment: CardComment } }
+  | { type: 'LOG_ACTION'; payload: { entry: ActivityEntry } }
+  | { type: 'SET_TRANSIT'; payload: { cardId: string; isTransit: boolean } }
+  | { type: 'SET_AUTO_SORT'; payload: { enabled: boolean } }
+  | { type: 'SET_EDITING'; payload: { cardId: string; isEditing: boolean } };
 
 /** The envelope that travels over BroadcastChannel. */
 export interface SyncMessage {

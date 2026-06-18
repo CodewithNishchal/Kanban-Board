@@ -58,6 +58,21 @@ const rawSetItem = (name: string, value: string) => {
   localStorage.setItem(name, value);
 };
 
+const priorityOrder: Record<string, number> = { high: 3, medium: 2, low: 1 };
+
+export function sortCardIds(cardIds: string[], cards: Record<string, Card>): string[] {
+  return [...cardIds].sort((a, b) => {
+    const cardA = cards[a];
+    const cardB = cards[b];
+    if (!cardA || !cardB) return 0;
+
+    const priA = priorityOrder[cardA.priority || 'medium'] || 0;
+    const priB = priorityOrder[cardB.priority || 'medium'] || 0;
+
+    return priB - priA; // Descending: high -> medium -> low
+  });
+}
+
 const debouncedLocalStorage = {
   getItem: (name: string): string | null => {
     return localStorage.getItem(name);
@@ -88,10 +103,10 @@ if (typeof window !== 'undefined') {
 // ── Default board seed ──────────────────────────────────────
 
 const DEFAULT_COLUMNS: Column[] = [
-  { id: 'col-todo',        title: 'To Do',        cardIds: [] },
-  { id: 'col-in-progress', title: 'In Progress',  cardIds: [] },
-  { id: 'col-in-review',   title: 'In Review',    cardIds: [] },
-  { id: 'col-done',        title: 'Done',          cardIds: [] },
+  { id: 'col-todo', title: 'To Do', cardIds: [] },
+  { id: 'col-in-progress', title: 'In Progress', cardIds: [] },
+  { id: 'col-in-review', title: 'In Review', cardIds: [] },
+  { id: 'col-done', title: 'Done', cardIds: [] },
 ];
 
 const DEFAULT_BOARD_TITLE = 'Kanban Board';
@@ -104,20 +119,24 @@ interface BoardStore {
   columns: Column[];
   cards: Record<string, Card>;
   activityLog: ActivityEntry[];
-  inTransitCardId: string | null;
+  inTransitCardIds: string[];
+  autoSortEnabled: boolean;
+  editingCardIds: string[];
 
   // ── Local mutations (broadcast + log) ─────────────────────
-  addCard:         (columnId: string, title: string, priority?: Priority, category?: string, progress?: number, attachmentsCount?: number) => void;
-  editCard:        (cardId: string, updates: Partial<Omit<Card, 'id'>>) => void;
-  deleteCard:      (cardId: string) => void;
-  moveCard:        (cardId: string, toColumnId: string, toIndex: number, skipLog?: boolean) => void;
-  renameColumn:    (columnId: string, newTitle: string) => void;
-  setBoardTitle:   (title: string) => void;
-  addComment:      (cardId: string, text: string) => void;
-  setTransitCard:  (cardId: string | null) => void;
+  addCard: (columnId: string, title: string, priority?: Priority, category?: string, progress?: number, attachmentsCount?: number) => void;
+  editCard: (cardId: string, updates: Partial<Omit<Card, 'id'>>) => void;
+  deleteCard: (cardId: string) => void;
+  moveCard: (cardId: string, toColumnId: string, toIndex: number, skipLog?: boolean, originalFromColumnId?: string | null) => void;
+  renameColumn: (columnId: string, newTitle: string) => void;
+  setBoardTitle: (title: string) => void;
+  addComment: (cardId: string, text: string) => void;
+  setTransitCard: (cardId: string, isTransit: boolean) => void;
+  setAutoSortEnabled: (enabled: boolean) => void;
+  setEditingCard: (cardId: string, isEditing: boolean) => void;
 
   // ── Board reset ───────────────────────────────────────────
-  resetBoard:      () => void;
+  resetBoard: () => void;
   clearActivityLog: () => void;
 
   // ── Remote action handler (NO broadcast, NO echo) ─────────
@@ -136,11 +155,13 @@ export const useBoardStore = create<BoardStore>()(
   persist(
     (set, get) => ({
       // ── Initial data ────────────────────────────────────────
-      boardTitle:  DEFAULT_BOARD_TITLE,
-      columns:     DEFAULT_COLUMNS,
-      cards:       {},
+      boardTitle: DEFAULT_BOARD_TITLE,
+      columns: DEFAULT_COLUMNS,
+      cards: {},
       activityLog: [],
-      inTransitCardId: null,
+      inTransitCardIds: [],
+      autoSortEnabled: false,
+      editingCardIds: [],
 
       // ── Broadcast slot (wired by useBroadcastSync) ──────────
       _broadcastAction: null,
@@ -148,8 +169,8 @@ export const useBoardStore = create<BoardStore>()(
       // ── Activity log helper ─────────────────────────────────
       _log: (message: string, externalTabId?: string) => {
         const entry: ActivityEntry = {
-          id:        uid(),
-          tabId:     externalTabId ?? TAB_ID,
+          id: uid(),
+          tabId: externalTabId ?? TAB_ID,
           timestamp: Date.now(),
           message,
         };
@@ -170,26 +191,26 @@ export const useBoardStore = create<BoardStore>()(
       // ────────────────────────────────────────────────────────
 
       addCard: (
-        columnId: string, 
-        title: string, 
+        columnId: string,
+        title: string,
         priority: Priority = 'medium',
         category?: string,
         progress?: number,
         attachmentsCount?: number
       ) => {
         const card: Card = {
-          id:          uid(),
+          id: uid(),
           title,
           description: '',
           priority,
           category,
           progress,
           attachmentsCount,
-          dueDate:     null,
+          dueDate: null,
           columnId,
-          assignee:    '',
-          comments:    [],
-          createdAt:   Date.now(),
+          assignee: '',
+          comments: [],
+          createdAt: Date.now(),
         };
 
         set((state) => {
@@ -221,6 +242,20 @@ export const useBoardStore = create<BoardStore>()(
             [cardId]: { ...state.cards[cardId], ...updates },
           },
         }));
+
+        if (updates.priority !== undefined && updates.priority !== existing.priority) {
+          if (get().autoSortEnabled) {
+            setTimeout(() => {
+              set((state) => ({
+                columns: state.columns.map((col) =>
+                  col.id === existing.columnId
+                    ? { ...col, cardIds: sortCardIds(col.cardIds, state.cards) }
+                    : col
+                )
+              }));
+            }, 400); // shorter delay for edits since no drop animation precedes it
+          }
+        }
 
         // Determine a human-readable summary of what changed
         const fields = Object.keys(updates) as (keyof typeof updates)[];
@@ -261,7 +296,8 @@ export const useBoardStore = create<BoardStore>()(
         cardId: string,
         toColumnId: string,
         toIndex: number,
-        skipLog?: boolean
+        skipLog?: boolean,
+        originalFromColumnId?: string | null
       ) => {
         const card = get().cards[cardId];
         if (!card) return;
@@ -275,9 +311,9 @@ export const useBoardStore = create<BoardStore>()(
 
         set((state) => {
           // Deep-clone columns and remove card from ALL columns to fix any glitch state
-          const columns = state.columns.map((col) => ({ 
-            ...col, 
-            cardIds: col.cardIds.filter(id => id !== cardId) 
+          const columns = state.columns.map((col) => ({
+            ...col,
+            cardIds: col.cardIds.filter(id => id !== cardId)
           }));
 
           // (already removed from source during deep-clone filter above)
@@ -298,19 +334,33 @@ export const useBoardStore = create<BoardStore>()(
           };
         });
 
-        if (!skipLog) {
-          const fromTitle = get().columns.find((c) => c.id === fromColumnId)?.title ?? fromColumnId;
-          const toTitle   = get().columns.find((c) => c.id === toColumnId)?.title   ?? toColumnId;
+        // Delayed sort — fires after drop animation completes, only if enabled
+        if (get().autoSortEnabled) {
+          setTimeout(() => {
+            set((state) => ({
+              columns: state.columns.map((col) =>
+                col.id === toColumnId
+                  ? { ...col, cardIds: sortCardIds(col.cardIds, state.cards) }
+                  : col
+              )
+            }));
+          }, 800); // 800ms — after your 600ms useSortable transition finishes
+        }
 
-          if (fromColumnId === toColumnId) {
+        if (!skipLog) {
+          const actualFromColumnId = originalFromColumnId || fromColumnId;
+          const fromTitle = get().columns.find((c) => c.id === actualFromColumnId)?.title ?? actualFromColumnId;
+          const toTitle = get().columns.find((c) => c.id === toColumnId)?.title ?? toColumnId;
+
+          if (actualFromColumnId === toColumnId) {
             get()._log(`Reordered "${card.title}" in ${toTitle}`);
           } else {
-            get()._log(`Moved "${card.title}" from ${fromTitle} to ${toTitle}`);
+            get()._log(`Card "${card.title}" moved from ${fromTitle} to ${toTitle}`);
           }
 
           get()._broadcastAction?.({
             type: 'MOVE_CARD',
-            payload: { cardId, fromColumnId, toColumnId, toIndex },
+            payload: { cardId, fromColumnId: actualFromColumnId, toColumnId, toIndex },
           });
         }
       },
@@ -350,9 +400,9 @@ export const useBoardStore = create<BoardStore>()(
         if (!card) return;
 
         const comment: CardComment = {
-          id:        uid(),
+          id: uid(),
           text,
-          tabId:     TAB_ID,
+          tabId: TAB_ID,
           timestamp: Date.now(),
         };
 
@@ -373,20 +423,51 @@ export const useBoardStore = create<BoardStore>()(
         });
       },
 
-      setTransitCard: (cardId: string | null) => {
-        set({ inTransitCardId: cardId });
-        get()._broadcastAction?.({
-          type: 'SET_TRANSIT',
-          payload: { cardId },
+      setTransitCard: (cardId, isTransit) => {
+        set((state) => {
+          const newSet = new Set(state.inTransitCardIds);
+          if (isTransit) newSet.add(cardId);
+          else newSet.delete(cardId);
+          return { inTransitCardIds: Array.from(newSet) };
         });
+        get()._broadcastAction?.({ type: 'SET_TRANSIT', payload: { cardId, isTransit } });
+      },
+
+      setAutoSortEnabled: (enabled: boolean) => {
+        set((state) => {
+          if (enabled) {
+            // Sort all columns immediately when toggled on
+            const columns = state.columns.map(col => ({
+              ...col,
+              cardIds: sortCardIds(col.cardIds, state.cards)
+            }));
+            return { autoSortEnabled: enabled, columns };
+          }
+          return { autoSortEnabled: enabled };
+        });
+        // Optionally broadcast this setting if we want it synced across tabs
+        get()._broadcastAction?.({
+          type: 'SET_AUTO_SORT',
+          payload: { enabled },
+        });
+      },
+
+      setEditingCard: (cardId, isEditing) => {
+        set((state) => {
+          const newSet = new Set(state.editingCardIds);
+          if (isEditing) newSet.add(cardId);
+          else newSet.delete(cardId);
+          return { editingCardIds: Array.from(newSet) };
+        });
+        get()._broadcastAction?.({ type: 'SET_EDITING', payload: { cardId, isEditing } });
       },
 
       // ── Board reset / clear ─────────────────────────────────
       resetBoard: () => {
         set({
-          boardTitle:  DEFAULT_BOARD_TITLE,
-          columns:     DEFAULT_COLUMNS.map((c) => ({ ...c, cardIds: [] })),
-          cards:       {},
+          boardTitle: DEFAULT_BOARD_TITLE,
+          columns: DEFAULT_COLUMNS.map((c) => ({ ...c, cardIds: [] })),
+          cards: {},
           activityLog: [],
         });
       },
@@ -516,8 +597,37 @@ export const useBoardStore = create<BoardStore>()(
           }
 
           case 'SET_TRANSIT': {
-            const { cardId } = event.payload;
-            set({ inTransitCardId: cardId });
+            set((state) => {
+              const newSet = new Set(state.inTransitCardIds);
+              if (event.payload.isTransit) newSet.add(event.payload.cardId);
+              else newSet.delete(event.payload.cardId);
+              return { inTransitCardIds: Array.from(newSet) };
+            });
+            break;
+          }
+
+          case 'SET_AUTO_SORT': {
+            const { enabled } = event.payload;
+            set((state) => {
+              if (enabled) {
+                const columns = state.columns.map(col => ({
+                  ...col,
+                  cardIds: sortCardIds(col.cardIds, state.cards)
+                }));
+                return { autoSortEnabled: enabled, columns };
+              }
+              return { autoSortEnabled: enabled };
+            });
+            break;
+          }
+
+          case 'SET_EDITING': {
+            set((state) => {
+              const newSet = new Set(state.editingCardIds);
+              if (event.payload.isEditing) newSet.add(event.payload.cardId);
+              else newSet.delete(event.payload.cardId);
+              return { editingCardIds: Array.from(newSet) };
+            });
             break;
           }
         }
@@ -528,9 +638,9 @@ export const useBoardStore = create<BoardStore>()(
       storage: createJSONStorage(() => debouncedLocalStorage),
       // Only persist data, not functions
       partialize: (state) => ({
-        boardTitle:  state.boardTitle,
-        columns:     state.columns,
-        cards:       state.cards,
+        boardTitle: state.boardTitle,
+        columns: state.columns,
+        cards: state.cards,
         activityLog: state.activityLog,
       }) as unknown as BoardStore,
     },

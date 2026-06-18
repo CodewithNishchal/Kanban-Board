@@ -13,6 +13,7 @@ export function useDragAndDrop() {
 
   // RAF-based throttle: only allow one onDragOver per animation frame
   const rafRef = useRef<number | null>(null);
+  const initialColumnIdRef = useRef<string | null>(null);
 
   // ── Helpers that always read LATEST store state ──────────────
   // Using useBoardStore.getState() instead of closure-captured selectors
@@ -54,8 +55,10 @@ export function useDragAndDrop() {
   // ── Handlers ─────────────────────────────────────────────────
 
   const handleDragStart = (event: DragStartEvent) => {
-    setActiveId(event.active.id as string);
-    setTransitCard(event.active.id as string);
+    const cardId = event.active.id as string;
+    setActiveId(cardId);
+    setTransitCard(cardId, true);
+    initialColumnIdRef.current = findCardColumn(cardId);
   };
 
   // The actual logic extracted so the RAF callback can invoke it
@@ -118,7 +121,7 @@ export function useDragAndDrop() {
 
     setActiveId(null);
     setActiveColumn(null);
-    setTransitCard(null);
+    if (droppedCardId) setTransitCard(droppedCardId, false);
 
     const { active, over } = event;
     if (!over) return;
@@ -135,7 +138,7 @@ export function useDragAndDrop() {
 
     if (fromColumnId && toColumnId) {
       // Final drop — log and broadcast
-      moveCard(cardId, toColumnId, index);
+      moveCard(cardId, toColumnId, index, false, initialColumnIdRef.current);
     }
   };
 

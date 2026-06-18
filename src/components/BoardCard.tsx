@@ -6,22 +6,30 @@ import { CSS } from '@dnd-kit/utilities';
 import type { Card } from '../types';
 import { useBoardStore } from '../store/boardStore';
 
-const BoardCard: React.FC<{ card: Card; onEdit?: () => void; isEditing?: boolean; isOverlay?: boolean; droppingId?: string | null }> = ({ card, onEdit, isEditing, isOverlay }) => {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: card.id });
-  const inTransitCardId = useBoardStore(state => state.inTransitCardId);
-  const isTransit = inTransitCardId === card.id && !isDragging && !isOverlay;
+const BoardCard: React.FC<{ card: Card; onEdit?: (rect: DOMRect) => void; isEditing?: boolean; isOverlay?: boolean; droppingId?: string | null }> = ({ card, onEdit, isEditing, isOverlay }) => {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: card.id,
+    transition: {
+      duration: 450,
+      easing: 'cubic-bezier(0.25, 1, 0.5, 1)'
+    }
+  });
+  const inTransitCardIds = useBoardStore(state => state.inTransitCardIds);
+  const isTransit = inTransitCardIds.includes(card.id) && !isDragging && !isOverlay;
+  const remoteEditingCardIds = useBoardStore(state => state.editingCardIds);
+  const isRemoteEditing = remoteEditingCardIds.includes(card.id) && !isEditing && !isOverlay;
 
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
     transition: transition || undefined,
-    opacity: isDragging ? 0 : 1,
+    opacity: 1,
   };
 
 
 
   const progress = card.progress !== undefined ? card.progress : 0;
 
-  const commentsCount = card.comments && card.comments.length > 0 ? card.comments.length : 4;
+  const commentsCount = card.comments && card.comments.length > 0 ? card.comments.length : 0;
 
   const mockAvatars = [
     `https://i.pravatar.cc/150?u=user1_${card.id}`,
@@ -117,18 +125,45 @@ const BoardCard: React.FC<{ card: Card; onEdit?: () => void; isEditing?: boolean
     </div>
   ) : (
     <>
+      {isRemoteEditing && (
+        <>
+          <div className="absolute inset-0 rounded-[1.25rem] ring-1 ring-amber-400/40 pointer-events-none z-0" />
+          <motion.div
+            className="absolute inset-x-0 h-[3px] bg-gradient-to-r from-transparent via-amber-400 to-transparent shadow-[0_0_12px_rgba(245,158,11,0.8)] pointer-events-none z-0"
+            animate={{ top: ["0%", "100%", "0%"] }}
+            transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
+          />
+          <div
+            className="absolute -inset-5 pointer-events-none rounded-[1.25rem] transition-opacity duration-500 z-0"
+            style={{
+              background: "radial-gradient(circle at center, rgba(245, 158, 11, 0.08) 0%, transparent 70%)",
+            }}
+          />
+        </>
+      )}
+      
       {/* Priority Badge — pill-shaped */}
-      <div className="mb-3">
+      <div className="mb-3 relative z-10">
+        {isRemoteEditing && (
+          <div className="absolute -top-1 -right-1 flex items-center gap-1 bg-amber-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow-md z-10">
+            <motion.span
+              animate={{ opacity: [1, 0.4, 1] }}
+              transition={{ duration: 1.2, repeat: Infinity }}
+              className="w-1.5 h-1.5 rounded-full bg-white inline-block"
+            />
+            Editing
+          </div>
+        )}
         <span className={`text-[11px] xl:text-[12.5px] font-bold px-3.5 py-1.5 rounded-full capitalize inline-block tracking-wide ${card.priority === 'high' ? 'bg-red-100/80 text-red-600' :
-            card.priority === 'medium' ? 'bg-amber-100/80 text-amber-600' :
-              'bg-blue-100/80 text-blue-600'
+          card.priority === 'medium' ? 'bg-amber-100/80 text-amber-600' :
+            'bg-blue-100/80 text-blue-600'
           }`}>
           {card.priority}
         </span>
       </div>
 
       {/* Title */}
-      <h3 className="font-extrabold text-slate-800 text-[15px] xl:text-[17px] mb-2.5 leading-snug pr-2">{card.title}</h3>
+      <h3 className="font-extrabold text-violet-900 text-[15px] xl:text-[17px] mb-2.5 leading-snug pr-2">{card.title}</h3>
 
       {/* Assignee Avatar / Initials — hardcoded below heading */}
       <div className="flex items-center gap-2 mb-4">
@@ -171,49 +206,37 @@ const BoardCard: React.FC<{ card: Card; onEdit?: () => void; isEditing?: boolean
       {...(isTransit ? {} : listeners)}
       className="mb-4 relative outline-none focus-visible:outline-2 focus-visible:outline-violet-500 rounded-[1.25rem]"
     >
-      <div
-        onClick={isTransit ? undefined : onEdit}
-        className={
-          isTransit
-            ? "relative overflow-hidden bg-slate-50/50 backdrop-blur-[2px] p-5 rounded-[1.25rem] border border-violet-200/60 shadow-[0_0_12px_rgba(139,92,246,0.06)] select-none pointer-events-none transition-all duration-300 w-full aspect-[1.8] flex flex-col justify-between"
-            : `p-5 rounded-[1.25rem] shadow-sm cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow duration-300 border border-white/50 backdrop-blur-[10px] w-full aspect-[1.8] flex flex-col justify-between ${isEditing ? 'scale-[1.03] ring-2 ring-violet-500 shadow-lg z-10' : 'hover:scale-[1.01]'}`
-        }
-        style={
-          isTransit
-            ? {}
-            : {
-                background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.7) 0%, rgba(243, 232, 255, 0.5) 100%)',
-                backdropFilter: 'blur(10px)',
-                WebkitBackdropFilter: 'blur(10px)'
-              }
-        }
+      <motion.div
+        layout
+        transition={{ duration: 0.4, ease: [0.25, 1, 0.5, 1] }}
+        className="w-full"
       >
-        {cardContent}
-      </div>
-
-      {/* Morphing Overlay for EditPanel transition (kept mounted during drag to avoid unmount glitches) */}
-      {!isEditing && !isOverlay && (
-        <motion.div
-          layoutId={`card-${card.id}`}
-          transition={{ type: "spring", stiffness: 200, damping: 28 }}
+        <div
+          onClick={(e) => {
+            if (isTransit || isDragging || isRemoteEditing) return;
+            if (onEdit) {
+              const rect = e.currentTarget.getBoundingClientRect();
+              onEdit(rect);
+            }
+          }}
           className={
-            isTransit
-              ? "absolute inset-0 bg-slate-50/50 backdrop-blur-[2px] p-5 rounded-[1.25rem] border border-violet-200/60 pointer-events-none flex flex-col justify-between"
-              : "absolute inset-0 p-5 rounded-[1.25rem] shadow-sm border border-white/50 backdrop-blur-[10px] pointer-events-none flex flex-col justify-between"
+            isDragging
+              ? "border-2 border-black border-dashed rounded-[1.25rem] w-full aspect-[1.8] bg-black/5"
+              : isTransit
+                ? "relative overflow-hidden bg-slate-50/50 backdrop-blur-[2px] p-5 rounded-[1.25rem] border border-violet-200/60 shadow-[0_0_12px_rgba(139,92,246,0.06)] select-none pointer-events-none transition-all duration-300 w-full aspect-[1.8] flex flex-col justify-between"
+                : `p-5 rounded-[1.25rem] cursor-grab active:cursor-grabbing transition-all duration-300 border border-white/60 border-b-white/10 border-r-white/10 backdrop-blur-2xl shadow-[inset_0_1px_1px_rgba(255,255,255,0.9),inset_1px_0_1px_rgba(255,255,255,0.8),0_8px_32px_rgba(0,0,0,0.2)] w-full aspect-[1.8] flex flex-col justify-between ${isEditing ? 'scale-95 opacity-50 brightness-50 contrast-125 z-0' : isRemoteEditing ? 'opacity-95 relative overflow-hidden shadow-[0_4px_20px_rgba(245,158,11,0.15)]' : 'hover:scale-[1.01] hover:shadow-[inset_0_1px_1px_rgba(255,255,255,1),inset_1px_0_1px_rgba(255,255,255,1),0_12px_40px_rgba(0,0,0,0.25)]'}`
           }
           style={
-            isTransit
+            isTransit || isDragging
               ? {}
               : {
-                  background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.7) 0%, rgba(243, 232, 255, 0.5) 100%)',
-                  backdropFilter: 'blur(10px)',
-                  WebkitBackdropFilter: 'blur(10px)'
-                }
+                background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.6) 0%, rgba(139, 92, 246, 0.15) 50%, rgba(76, 29, 149, 0.08) 100%)'
+              }
           }
         >
-          {cardContent}
-        </motion.div>
-      )}
+          {!isDragging && cardContent}
+        </div>
+      </motion.div>
     </div>
   );
 };

@@ -15,7 +15,7 @@ interface ColumnProps {
   bgColorClass: string;
   dotColorClass: string;
   cards: Card[];
-  onEditCard?: (id: string) => void;
+  onEditCard?: (id: string, rect?: DOMRect) => void;
   editingCardId?: string | null;
   droppingId?: string | null;
 }
@@ -31,6 +31,7 @@ const BoardColumn: React.FC<ColumnProps> = ({ id, title, bgColorClass, cards = [
   const [newCardTitle, setNewCardTitle] = useState('');
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setEditTitleVal(title);
   }, [title]);
 
@@ -72,10 +73,10 @@ const BoardColumn: React.FC<ColumnProps> = ({ id, title, bgColorClass, cards = [
   };
 
   return (
-    <div 
-      ref={setNodeRef} 
-      id={id} 
-      className={`flex-1 basis-80 min-w-[350px] flex flex-col p-4 rounded-2xl transition-all ${bgColorClass} ${isOver ? 'ring-2 ring-violet-500/20 shadow-inner' : ''}`}
+    <div
+      ref={setNodeRef}
+      id={id}
+      className={`flex-1 basis-80 min-w-[350px] flex flex-col p-4 rounded-2xl transition-all border-2 ${isOver ? 'border-black border-dashed bg-black/5 shadow-inner' : 'border-transparent'} ${bgColorClass}`}
       style={{ height: 'calc(100vh - 160px)' }}
     >
       <div className="flex justify-between items-center mb-6 px-1">
@@ -92,7 +93,7 @@ const BoardColumn: React.FC<ColumnProps> = ({ id, title, bgColorClass, cards = [
               onFocus={(e) => e.target.select()}
             />
           ) : (
-            <h2 
+            <h2
               onDoubleClick={() => setIsEditingTitle(true)}
               className="font-extrabold text-[#120836] text-[22px] xl:text-[26px] tracking-tight truncate cursor-pointer select-none hover:text-violet-600 transition-colors flex-shrink-0"
               title="Double click to rename"
@@ -101,11 +102,11 @@ const BoardColumn: React.FC<ColumnProps> = ({ id, title, bgColorClass, cards = [
             </h2>
           )}
           <span className="text-[10.5px] xl:text-[11.5px] text-white font-extrabold bg-emerald-500 px-2.5 py-1 rounded-full shadow-xs flex-shrink-0 ml-3 inline-flex items-center justify-center">
-            Count: {cards.length}
+            Tasks: {cards.length}
           </span>
         </div>
-        <button 
-          onClick={handleAddNewTask} 
+        <button
+          onClick={handleAddNewTask}
           className="text-gray-500 bg-white hover:bg-slate-50 hover:text-gray-800 transition-all p-1.5 rounded-full shadow-xs border border-slate-100 flex items-center justify-center cursor-pointer flex-shrink-0"
         >
           <Plus className="w-3.5 h-3.5" />
@@ -115,13 +116,13 @@ const BoardColumn: React.FC<ColumnProps> = ({ id, title, bgColorClass, cards = [
       <div className="flex-1 overflow-y-auto pr-1 custom-scrollbar space-y-4">
         <SortableContext items={cards.map(c => c.id)} strategy={verticalListSortingStrategy}>
           {cards.map(card => (
-            <BoardCard key={card.id} card={card} onEdit={() => onEditCard?.(card.id)} isEditing={editingCardId === card.id} droppingId={droppingId} />
+            <BoardCard key={card.id} card={card} onEdit={(rect) => onEditCard?.(card.id, rect)} isEditing={editingCardId === card.id} droppingId={droppingId} />
           ))}
         </SortableContext>
       </div>
 
       <div className="mt-4 flex flex-col flex-shrink-0">
-        <AnimatePresence initial={false}>
+        <AnimatePresence initial={false} mode="wait">
           {isAddingCard ? (
             <motion.div
               key="inline-add-card"
@@ -153,7 +154,7 @@ const BoardColumn: React.FC<ColumnProps> = ({ id, title, bgColorClass, cards = [
               <div className="flex justify-between items-center mt-4 pt-2 border-t border-slate-50">
                 <span className="text-[10px] text-gray-400 font-medium">Enter to save, Esc to cancel</span>
                 <div className="flex space-x-1">
-                  <button 
+                  <button
                     onClick={() => {
                       setNewCardTitle('');
                       setIsAddingCard(false);
@@ -162,7 +163,7 @@ const BoardColumn: React.FC<ColumnProps> = ({ id, title, bgColorClass, cards = [
                   >
                     Cancel
                   </button>
-                  <button 
+                  <button
                     onClick={handleCreateCard}
                     className="px-3 py-1 bg-violet-600 text-white rounded-full text-xs font-bold shadow-xs hover:bg-violet-700 transition-colors cursor-pointer"
                   >
@@ -178,7 +179,7 @@ const BoardColumn: React.FC<ColumnProps> = ({ id, title, bgColorClass, cards = [
               className="w-full py-3 bg-white/40 hover:bg-white border border-dashed border-slate-200 hover:border-violet-300 rounded-[1.25rem] text-[#120836]/60 hover:text-violet-600 flex items-center justify-center gap-2 font-bold text-sm transition-all shadow-xs cursor-pointer"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
+              exit={{ opacity: 0, transition: { duration: 0.08 } }}
             >
               <Plus className="w-4 h-4 text-violet-500" />
               Add Card

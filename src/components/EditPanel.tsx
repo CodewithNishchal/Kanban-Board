@@ -11,10 +11,11 @@ import type { Priority, Assignee, Card } from '../types';
 interface EditPanelProps {
   mode?: 'edit' | 'log';
   cardId?: string;
+  originRect?: DOMRect | null;
   onClose: () => void;
 }
 
-const EditPanel: React.FC<EditPanelProps> = ({ mode = 'edit', cardId, onClose }) => {
+const EditPanel: React.FC<EditPanelProps> = ({ mode = 'edit', cardId, originRect, onClose }) => {
   const cards = useBoardStore(state => state.cards);
   const activityLog = useBoardStore(state => state.activityLog);
   const editCard = useBoardStore(state => state.editCard);
@@ -40,6 +41,7 @@ const EditPanel: React.FC<EditPanelProps> = ({ mode = 'edit', cardId, onClose })
   // Initialize local state once when the panel opens for a specific card
   useEffect(() => {
     if (mode === 'edit' && card) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setTitle(card.title);
       setDescription(card.description || '');
       setPriority(card.priority);
@@ -130,7 +132,6 @@ const EditPanel: React.FC<EditPanelProps> = ({ mode = 'edit', cardId, onClose })
   if (mode === 'log') {
     return (
       <motion.div
-        layoutId="logs-panel"
         initial={{ x: 420 }}
         animate={{ x: 0 }}
         exit={{ x: 420 }}
@@ -149,7 +150,7 @@ const EditPanel: React.FC<EditPanelProps> = ({ mode = 'edit', cardId, onClose })
           </div>
           <div className="flex-1 overflow-y-auto p-6 space-y-4 custom-scrollbar">
             {activityLog.length === 0 ? (
-               <p className="text-gray-400 italic text-center py-4 text-sm font-medium">No activity yet.</p>
+              <p className="text-gray-400 italic text-center py-4 text-sm font-medium">No activity yet.</p>
             ) : (
               activityLog.map(entry => (
                 <div key={entry.id} className="bg-white rounded-xl p-4 border border-slate-200 shadow-sm">
@@ -169,14 +170,15 @@ const EditPanel: React.FC<EditPanelProps> = ({ mode = 'edit', cardId, onClose })
     );
   }
 
+  const originY = originRect ? originRect.top + (originRect.height / 2) - 24 : '50%';
+
   return (
     <motion.div
-      layoutId={cardId ? `card-${cardId}` : undefined}
-      initial={{ opacity: 0, scale: 0.75, x: -80 }}
-      animate={{ opacity: 1, scale: 1, x: 0 }}
-      exit={{ opacity: 0, scale: 0.8, x: -60 }}
-      transition={{ type: "spring", stiffness: 200, damping: 25 }}
-      style={{ transformOrigin: 'left center' }}
+      initial={{ x: 40, scale: 0.95, opacity: 0 }}
+      animate={{ x: 0, scale: 1, opacity: 1 }}
+      exit={{ x: 40, scale: 0.95, opacity: 0 }}
+      transition={{ duration: 0.3, ease: [0.25, 1, 0.5, 1] }}
+      style={{ transformOrigin: `-50% ${originY}px` }}
       className="absolute right-6 top-6 bottom-6 z-50 bg-white shadow-2xl rounded-[2rem] border border-slate-100 flex flex-col overflow-hidden"
     >
       <div className="w-[420px] flex flex-col h-full overflow-hidden">
@@ -216,7 +218,7 @@ const EditPanel: React.FC<EditPanelProps> = ({ mode = 'edit', cardId, onClose })
           </div>
 
           {/* Priority & Due Date (2 columns) */}
-            <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-[13px] font-extrabold text-slate-500 uppercase tracking-wider mb-2">Priority</label>
               <div className="flex flex-col space-y-2">
@@ -225,10 +227,10 @@ const EditPanel: React.FC<EditPanelProps> = ({ mode = 'edit', cardId, onClose })
                     key={p}
                     onClick={() => { if (cardId) { setPriority(p); editCard(cardId, { priority: p }); } }}
                     className={`py-2.5 px-3 rounded-lg text-sm font-bold capitalize border transition-colors ${priority === p
-                        ? p === 'high' ? 'bg-rose-100 text-rose-600 border-rose-200 shadow-sm'
-                          : p === 'medium' ? 'bg-amber-100 text-amber-600 border-amber-200 shadow-sm'
-                            : 'bg-emerald-100 text-emerald-600 border-emerald-200 shadow-sm'
-                        : 'bg-white text-gray-500 border-slate-200 hover:bg-slate-50'
+                      ? p === 'high' ? 'bg-rose-100 text-rose-600 border-rose-200 shadow-sm'
+                        : p === 'medium' ? 'bg-amber-100 text-amber-600 border-amber-200 shadow-sm'
+                          : 'bg-emerald-100 text-emerald-600 border-emerald-200 shadow-sm'
+                      : 'bg-white text-gray-500 border-slate-200 hover:bg-slate-50'
                       }`}
                   >
                     {p}
